@@ -680,6 +680,12 @@ with tab_match_solo:
                             with col_f_saju_u:
                                 st.markdown(f"<div style='text-align:center; font-weight: 700; color:#ba68c8; margin-bottom:8px;'>[나] {u_name}님의 명식</div>", unsafe_allow_html=True)
                                 u_cols_f = st.columns(4)
+                                u_pillars_order = [
+                                    ("시주 (Hour)", user_saju['pillars']['hour']),
+                                    ("일주 (Day)", user_saju['pillars']['day']),
+                                    ("월주 (Month)", user_saju['pillars']['month']),
+                                    ("연주 (Year)", user_saju['pillars']['year'])
+                                ]
                                 for idx, (title, p_data) in enumerate(u_pillars_order):
                                     with u_cols_f[idx]:
                                         st.markdown(get_pillar_card_html(title, p_data), unsafe_allow_html=True)
