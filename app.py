@@ -1131,21 +1131,11 @@ if is_maker:
                 )
                 add_has_time = st.checkbox("친구 태어난 시간을 아시나요?")
                 
-                add_hour = None
-                add_minute = 0
                 if add_has_time:
-                    time_cols_add = st.columns(3)
-                    with time_cols_add[0]:
-                        add_ampm = st.selectbox("오전/오후 (친구)", ["오전 (AM)", "오후 (PM)"], key="add_ampm")
-                    with time_cols_add[1]:
-                        add_hour_12 = st.selectbox("시간 (1시~12시) (친구)", list(range(1, 13)), index=11, key="add_hour_12")
-                    with time_cols_add[2]:
-                        add_minute = st.selectbox("분 (친구)", [0, 10, 20, 30, 40, 50], index=0, key="add_minute")
-                    
-                    if add_ampm == "오전 (AM)":
-                        add_hour = 0 if add_hour_12 == 12 else add_hour_12
-                    else:
-                        add_hour = 12 if add_hour_12 == 12 else add_hour_12 + 12
+                    add_time_branch = st.selectbox("친구 태어난 시간 (12지시)", TIME_BRANCHES, key="add_time_branch")
+                    add_time_str = add_time_branch
+                else:
+                    add_time_str = None
                 
                 add_maker_memo = st.text_input("제작자 메모 (제작자만 볼 수 있음)", placeholder="예: 유쾌한 친구, 운동 매니아")
                 
@@ -1160,7 +1150,7 @@ if is_maker:
                             "이름": add_name.strip(),
                             "성별": add_gender,
                             "birth_date": add_birth.strftime("%Y-%m-%d"),
-                            "birth_time": f"{add_hour:02d}:{add_minute:02d}" if add_has_time else None,
+                            "birth_time": add_time_str,
                             "maker_memo": add_maker_memo.strip()
                         }
                         friends_db.append(new_friend)
