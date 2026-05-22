@@ -334,6 +334,20 @@ def render_saju_analysis(user_saju, u_name):
             <p>📉 <b>부족한 기운 (결핍오행):</b> {lack_badges}</p>
         </div>
         """, unsafe_allow_html=True)
+        
+    luck = user_saju.get('luck_texts', {})
+    if luck:
+        st.markdown("<br/>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size: 1rem; font-weight: 700; color:#ce93d8; margin-bottom: 10px;'>🌟 일간(태어난 날)으로 보는 5가지 운세</div>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style="background: rgba(255, 255, 255, 0.03); padding: 15px; border-radius: 8px; border: 1px solid rgba(186, 104, 200, 0.2);">
+            <p style="margin-bottom: 8px;">🎭 <b>성향:</b> {luck.get('성향', '')}</p>
+            <p style="margin-bottom: 8px;">💘 <b>연애/결혼:</b> {luck.get('연애운', '')}</p>
+            <p style="margin-bottom: 8px;">💰 <b>재물/금전:</b> {luck.get('재물운', '')}</p>
+            <p style="margin-bottom: 8px;">💼 <b>직업/적성:</b> {luck.get('직업운', '')}</p>
+            <p style="margin-bottom: 0;">🌿 <b>건강/주의:</b> {luck.get('건강운', '')}</p>
+        </div>
+        """, unsafe_allow_html=True)
 
 # Sidebar Setup
 with st.sidebar:
@@ -557,8 +571,16 @@ with tab_match_solo:
                     users_db.append(new_user)
                 save_users_db(users_db)
                 
+                # friends_db (전체 매칭 풀) 에도 저장
+                existing_f_idx = next((idx for idx, f in enumerate(friends_db) if f['이름'] == u_name.strip()), None)
+                if existing_f_idx is not None:
+                    friends_db[existing_f_idx] = new_user
+                else:
+                    friends_db.append(new_user)
+                save_friends_db(friends_db)
+                
                 st.balloons()
-                st.success(f"✨ **{u_name}**님의 사주 분석이 완료되었으며 매칭 풀에 자동 등록되었습니다!")
+                st.success(f"✨ **{u_name}**님의 사주 분석이 완료되었으며 전체 매칭 풀에 안전하게 등록/업데이트되었습니다!")
                 
                 # Show User's Own Saju Brief
                 st.markdown(f"#### 🔮 {u_name}님의 사주 팔자 분석")
