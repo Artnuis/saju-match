@@ -325,7 +325,7 @@ with st.sidebar:
     st.write("---")
     st.markdown("#### 🔒 제작자 관리 모드")
     dev_passcode = st.text_input("인증번호 입력", type="password", help="제작자만 사용하는 관리용 인증번호입니다.")
-    is_maker = (dev_passcode == "9900")
+    is_maker = (dev_passcode == "9180")
 
 # Main Title and Page Layout
 st.markdown("<h1>🔮 재미로 보는 솔로 사주 궁합 매칭</h1>", unsafe_allow_html=True)
@@ -711,30 +711,30 @@ with tab_match_couple:
     
     col_c1, col_c2 = st.columns(2)
     with col_c1:
-        st.markdown("#### 🧑‍🦰 본인 (A)")
-        c_name1 = st.text_input("닉네임 (A)", key="c_name1")
-        c_birth1 = st.date_input("생년월일 (A)", key="c_birth1", min_value=datetime.date(1900, 1, 1), max_value=datetime.date(2100, 12, 31), value=datetime.date(1995, 1, 1))
-        c_has_time1 = st.checkbox("태어난 시간을 아시나요? (A)", key="c_has_time1")
+        st.markdown("#### 🧑‍🦰 남성 사주 정보")
+        c_name1 = st.text_input("닉네임 (남성)", key="c_name1")
+        c_birth1 = st.date_input("생년월일 (남성)", key="c_birth1", min_value=datetime.date(1900, 1, 1), max_value=datetime.date(2100, 12, 31), value=datetime.date(1995, 1, 1))
+        c_has_time1 = st.checkbox("태어난 시간을 아시나요? (남성)", key="c_has_time1")
         c_hour1, c_min1 = None, 0
         if c_has_time1:
             tc1 = st.columns(3)
-            c_ampm1 = tc1[0].selectbox("오전/오후 (A)", ["오전 (AM)", "오후 (PM)"], key="c_ampm1")
-            c_h12_1 = tc1[1].selectbox("시간 (A)", list(range(1, 13)), key="c_h12_1")
-            c_min1 = tc1[2].selectbox("분 (A)", [0, 10, 20, 30, 40, 50], key="c_min1")
+            c_ampm1 = tc1[0].selectbox("오전/오후 (남성)", ["오전 (AM)", "오후 (PM)"], key="c_ampm1")
+            c_h12_1 = tc1[1].selectbox("시간 (남성)", list(range(1, 13)), key="c_h12_1")
+            c_min1 = tc1[2].selectbox("분 (남성)", [0, 10, 20, 30, 40, 50], key="c_min1")
             c_hour1 = c_h12_1 if c_ampm1 == "오전 (AM)" else (c_h12_1 + 12 if c_h12_1 < 12 else 12)
             if c_ampm1 == "오전 (AM)" and c_h12_1 == 12: c_hour1 = 0
             
     with col_c2:
-        st.markdown("#### 👩‍🦱 상대방 (B)")
-        c_name2 = st.text_input("닉네임 (B)", key="c_name2")
-        c_birth2 = st.date_input("생년월일 (B)", key="c_birth2", min_value=datetime.date(1900, 1, 1), max_value=datetime.date(2100, 12, 31), value=datetime.date(1995, 1, 1))
-        c_has_time2 = st.checkbox("태어난 시간을 아시나요? (B)", key="c_has_time2")
+        st.markdown("#### 👩‍🦱 여성 사주 정보")
+        c_name2 = st.text_input("닉네임 (여성)", key="c_name2")
+        c_birth2 = st.date_input("생년월일 (여성)", key="c_birth2", min_value=datetime.date(1900, 1, 1), max_value=datetime.date(2100, 12, 31), value=datetime.date(1995, 1, 1))
+        c_has_time2 = st.checkbox("태어난 시간을 아시나요? (여성)", key="c_has_time2")
         c_hour2, c_min2 = None, 0
         if c_has_time2:
             tc2 = st.columns(3)
-            c_ampm2 = tc2[0].selectbox("오전/오후 (B)", ["오전 (AM)", "오후 (PM)"], key="c_ampm2")
-            c_h12_2 = tc2[1].selectbox("시간 (B)", list(range(1, 13)), key="c_h12_2")
-            c_min2 = tc2[2].selectbox("분 (B)", [0, 10, 20, 30, 40, 50], key="c_min2")
+            c_ampm2 = tc2[0].selectbox("오전/오후 (여성)", ["오전 (AM)", "오후 (PM)"], key="c_ampm2")
+            c_h12_2 = tc2[1].selectbox("시간 (여성)", list(range(1, 13)), key="c_h12_2")
+            c_min2 = tc2[2].selectbox("분 (여성)", [0, 10, 20, 30, 40, 50], key="c_min2")
             c_hour2 = c_h12_2 if c_ampm2 == "오전 (AM)" else (c_h12_2 + 12 if c_h12_2 < 12 else 12)
             if c_ampm2 == "오전 (AM)" and c_h12_2 == 12: c_hour2 = 0
             
@@ -758,10 +758,10 @@ with tab_match_couple:
                 
                 col_res1, col_res2 = st.columns(2)
                 with col_res1:
-                    st.markdown(f"##### 🧑‍🦰 {c_name1}님의 일간 (성향)")
+                    st.markdown(f"##### 🧑‍🦰 남성({c_name1})의 일간 (성향)")
                     st.info(f"{saju1['day_stem_kr']}화({saju1['day_stem']}): {saju_engine.STEMS_INFO[saju1['day_stem']]['desc']}")
                 with col_res2:
-                    st.markdown(f"##### 👩‍🦱 {c_name2}님의 일간 (성향)")
+                    st.markdown(f"##### 👩‍🦱 여성({c_name2})의 일간 (성향)")
                     st.info(f"{saju2['day_stem_kr']}화({saju2['day_stem']}): {saju_engine.STEMS_INFO[saju2['day_stem']]['desc']}")
                     
                 st.markdown("##### 🎯 부문별 궁합 해설")
