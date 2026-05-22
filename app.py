@@ -6,6 +6,7 @@ import os
 import datetime
 from typing import Dict, Any, List, Optional
 from korean_lunar_calendar import KoreanLunarCalendar
+import plotly.graph_objects as go
 
 def get_solar_date(input_date: datetime.date, calendar_type: str) -> datetime.date:
     if calendar_type == "양력":
@@ -378,6 +379,50 @@ def make_element_bar_html(el: str, count: int, pct: float) -> str:
     </div>
     """
 
+# Radar Chart Function
+def render_radar_chart(element_power_pct):
+    categories = ['목(木)', '화(火)', '토(土)', '금(金)', '수(水)']
+    values = [
+        element_power_pct.get('목', 0),
+        element_power_pct.get('화', 0),
+        element_power_pct.get('토', 0),
+        element_power_pct.get('금', 0),
+        element_power_pct.get('수', 0)
+    ]
+    
+    categories = categories + [categories[0]]
+    values = values + [values[0]]
+    
+    fig = go.Figure()
+    fig.add_trace(go.Scatterpolar(
+        r=values,
+        theta=categories,
+        fill='toself',
+        fillcolor='rgba(186, 104, 200, 0.4)',
+        line=dict(color='#ba68c8', width=2),
+        name='오행 파워 스코어'
+    ))
+    
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, max(values) + 10] if max(values) > 0 else [0, 100],
+                gridcolor='rgba(255, 255, 255, 0.1)',
+                tickfont=dict(color='#ffffff')
+            ),
+            angularaxis=dict(
+                gridcolor='rgba(255, 255, 255, 0.2)',
+                tickfont=dict(color='#ffeb3b', size=14, weight='bold')
+            ),
+            bgcolor='rgba(0,0,0,0)'
+        ),
+        paper_bgcolor='rgba(0,0,0,0)',
+        margin=dict(l=30, r=30, t=30, b=30),
+        height=320
+    )
+    return fig
+
 # Helper for element color badge text
 def get_badge_html(el: str) -> str:
     cls_map = {'목': 'badge-wood', '화': 'badge-fire', '토': 'badge-earth', '금': 'badge-metal', '수': 'badge-water'}
@@ -402,7 +447,13 @@ def render_saju_analysis(user_saju, u_name):
     
     col_u_left, col_u_right = st.columns([2, 3])
     with col_u_left:
-        st.markdown("<div style='font-size: 1rem; font-weight: 700; color:#ce93d8; margin-bottom: 10px;'>오행 분포</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size: 1rem; font-weight: 700; color:#ce93d8; margin-bottom: 5px;'>📊 오행 파워 다이어그램 (전문가 가중치 반영)</div>", unsafe_allow_html=True)
+        power_pcts = user_saju.get('element_power_percentages', {})
+        if power_pcts:
+            fig = render_radar_chart(power_pcts)
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            
+        st.markdown("<div style='font-size: 0.9rem; font-weight: 700; color:#ce93d8; margin-bottom: 5px; margin-top: 5px;'>📊 단순 글자 수 분포</div>", unsafe_allow_html=True)
         for el, count in user_saju['element_counts'].items():
             pct = user_saju['element_percentages'][el]
             st.markdown(make_element_bar_html(el, count, pct), unsafe_allow_html=True)

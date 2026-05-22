@@ -197,6 +197,33 @@ def analyze_saju(year: int, month: int, day: int, hour: Optional[int] = None, mi
     # Calculate percentages
     element_pct = {k: round((v / total_chars) * 100, 1) for k, v in element_counts.items()}
     
+    # Calculate Power Scores (가중치 기반 오행 세기)
+    element_power_scores = {'목': 0.0, '화': 0.0, '토': 0.0, '금': 0.0, '수': 0.0}
+    power_weights = {
+        'month_branch': 35.0,
+        'day_branch': 15.0,
+        'hour_branch': 15.0,
+        'year_branch': 10.0,
+        'day_stem': 10.0,
+        'month_stem': 5.0,
+        'year_stem': 5.0,
+        'hour_stem': 5.0
+    }
+    
+    for p_name in active_pillars:
+        p = pillars[p_name]
+        se = p['stem_element']
+        be = p['branch_element']
+        
+        element_power_scores[se] += power_weights.get(f"{p_name}_stem", 0.0)
+        element_power_scores[be] += power_weights.get(f"{p_name}_branch", 0.0)
+        
+    total_power = sum(element_power_scores.values())
+    if total_power > 0:
+        element_power_pct = {k: round((v / total_power) * 100, 1) for k, v in element_power_scores.items()}
+    else:
+        element_power_pct = {k: 0.0 for k in element_power_scores.keys()}
+    
     # Identify Dominant (과다) and Deficient/Lacking (결핍) Elements
     # Lacking: count is 0. If multiple are 0, we list all. If none is 0, list the minimum.
     lacking_elements = [k for k, v in element_counts.items() if v == 0]
@@ -247,6 +274,8 @@ def analyze_saju(year: int, month: int, day: int, hour: Optional[int] = None, mi
         'day_branch_kr': pillars['day']['branch_kr'],
         'element_counts': element_counts,
         'element_percentages': element_pct,
+        'element_power_scores': element_power_scores,
+        'element_power_percentages': element_power_pct,
         'lacking_elements': lacking_elements,
         'dominant_elements': dominant_elements,
         'temp_score': temp_score,
