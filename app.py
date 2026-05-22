@@ -143,6 +143,29 @@ def save_users_db(db: List[Dict[str, Any]]):
     except Exception as e:
         st.error(f"사용자 데이터베이스 저장 중 오류가 발생했습니다: {e}")
 
+def sync_users_to_friends():
+    """users_db의 최신 정보를 friends_db에 덮어씌움 (실시간 연동 보장)"""
+    u_db = load_users_db()
+    f_db = load_friends_db()
+    
+    updated = False
+    for user in u_db:
+        # friends_db 에서 같은 이름 찾기
+        f_idx = next((idx for idx, f in enumerate(f_db) if f['이름'] == user['이름']), None)
+        if f_idx is not None:
+            # 기존 friends_db에 있던 maker_memo 보존
+            user['maker_memo'] = f_db[f_idx].get('maker_memo', '')
+            f_db[f_idx] = user
+        else:
+            f_db.append(user)
+        updated = True
+        
+    if updated:
+        save_friends_db(f_db)
+
+# 앱 실행 시 무조건 한 번 동기화 수행
+sync_users_to_friends()
+
 # Inject Custom CSS for Premium Mystical Look
 st.markdown("""
 <style>
