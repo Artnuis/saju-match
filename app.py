@@ -1290,6 +1290,43 @@ if is_maker:
                             
                             st.success(f"✅ **{edit_name.strip()}**님의 정보가 수정되었습니다!")
                             st.rerun()
+
+        # ---- 데이터 수동 백업 및 복구 섹션 ----
+        st.write("---")
+        st.markdown("<h4>💾 데이터 수동 백업 및 복구 (안전장치)</h4>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #e2d7ec; font-size: 0.9rem;'>클라우드 서버 재시작 시 데이터가 초기화되는 것을 방지하기 위해, 업데이트 전 백업을 권장합니다.</p>", unsafe_allow_html=True)
+        
+        col_b1, col_b2 = st.columns(2)
+        
+        with col_b1:
+            st.markdown("**1. 현재 데이터 다운로드 (백업)**")
+            if friends_db:
+                json_str = json.dumps(friends_db, ensure_ascii=False, indent=4)
+                st.download_button(
+                    label="📥 친구 목록 백업 파일 다운로드 (.json)",
+                    data=json_str,
+                    file_name=f"saju_backup_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                    mime="application/json"
+                )
+            else:
+                st.write("현재 백업할 데이터가 없습니다.")
+                
+        with col_b2:
+            st.markdown("**2. 백업 데이터 불러오기 (복구)**")
+            uploaded_file = st.file_uploader("다운로드 받았던 json 파일을 올려주세요", type="json")
+            if uploaded_file is not None:
+                if st.button("⚠️ 업로드한 파일로 전체 데이터 덮어쓰기"):
+                    try:
+                        restored_data = json.load(uploaded_file)
+                        if isinstance(restored_data, list):
+                            save_friends_db(restored_data)
+                            save_users_db(restored_data) # users_db도 함께 복구하여 싱크 맞춤
+                            st.success(f"🎉 총 {len(restored_data)}명의 데이터가 성공적으로 복구되었습니다!")
+                            st.rerun()
+                        else:
+                            st.error("잘못된 형식의 백업 파일입니다.")
+                    except Exception as e:
+                        st.error(f"파일 복구 중 오류가 발생했습니다: {e}")
 # ==========================================
 # TAB 3: 사주 오행 가이드 (Saju Guide)
 # ==========================================
