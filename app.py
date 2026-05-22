@@ -297,6 +297,44 @@ def get_badge_html(el: str) -> str:
     cls = cls_map.get(el, '')
     return f'<span class="{cls}">{el}</span>'
 
+# Common function to render user saju analysis UI
+def render_saju_analysis(user_saju, u_name):
+    u_cols = st.columns(4)
+    u_pillars_order = [
+        ("시주 (Hour)", user_saju['pillars']['hour']),
+        ("일주 (Day)", user_saju['pillars']['day']),
+        ("월주 (Month)", user_saju['pillars']['month']),
+        ("연주 (Year)", user_saju['pillars']['year'])
+    ]
+    
+    for idx, (title, p_data) in enumerate(u_pillars_order):
+        with u_cols[idx]:
+            st.markdown(get_pillar_card_html(title, p_data), unsafe_allow_html=True)
+    
+    st.markdown("<br/>", unsafe_allow_html=True)
+    
+    col_u_left, col_u_right = st.columns([2, 3])
+    with col_u_left:
+        st.markdown("<div style='font-size: 1rem; font-weight: 700; color:#ce93d8; margin-bottom: 10px;'>오행 분포</div>", unsafe_allow_html=True)
+        for el, count in user_saju['element_counts'].items():
+            pct = user_saju['element_percentages'][el]
+            st.markdown(make_element_bar_html(el, count, pct), unsafe_allow_html=True)
+            
+    with col_u_right:
+        st.markdown("<div style='font-size: 1rem; font-weight: 700; color:#ce93d8; margin-bottom: 10px;'>사주 특징 요약</div>", unsafe_allow_html=True)
+        
+        lack_badges = ", ".join([get_badge_html(x) for x in user_saju['lacking_elements']])
+        dom_badges = ", ".join([get_badge_html(x) for x in user_saju['dominant_elements']])
+        
+        st.markdown(f"""
+        <div class="mystic-card" style="padding: 18px; margin-bottom: 0;">
+            <p>👤 <b>일간 본성:</b> <b>{user_saju['day_stem_kr']}화({user_saju['day_stem']})</b> - {saju_engine.STEMS_INFO[user_saju['day_stem']]['desc']}</p>
+            <p>❄️ <b>사주 온도(조후):</b> {user_saju['temp_kr']}</p>
+            <p>📈 <b>강한 기운 (과다오행):</b> {dom_badges}</p>
+            <p>📉 <b>부족한 기운 (결핍오행):</b> {lack_badges}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
 # Sidebar Setup
 with st.sidebar:
     # Display the mystical crystal ball image we generated
@@ -506,43 +544,7 @@ with tab_match_solo:
                 
                 # Show User's Own Saju Brief
                 st.markdown(f"#### 🔮 {u_name}님의 사주 팔자 분석")
-                
-                u_cols = st.columns(4)
-                u_pillars_order = [
-                    ("시주 (Hour)", user_saju['pillars']['hour']),
-                    ("일주 (Day)", user_saju['pillars']['day']),
-                    ("월주 (Month)", user_saju['pillars']['month']),
-                    ("연주 (Year)", user_saju['pillars']['year'])
-                ]
-                
-                for idx, (title, p_data) in enumerate(u_pillars_order):
-                    with u_cols[idx]:
-                        st.markdown(get_pillar_card_html(title, p_data), unsafe_allow_html=True)
-                
-                st.markdown("<br/>", unsafe_allow_html=True)
-                
-                # User Element Balance
-                col_u_left, col_u_right = st.columns([2, 3])
-                with col_u_left:
-                    st.markdown("<div style='font-size: 1rem; font-weight: 700; color:#ce93d8; margin-bottom: 10px;'>내 오행 분포</div>", unsafe_allow_html=True)
-                    for el, count in user_saju['element_counts'].items():
-                        pct = user_saju['element_percentages'][el]
-                        st.markdown(make_element_bar_html(el, count, pct), unsafe_allow_html=True)
-                        
-                with col_u_right:
-                    st.markdown("<div style='font-size: 1rem; font-weight: 700; color:#ce93d8; margin-bottom: 10px;'>내 사주 특징</div>", unsafe_allow_html=True)
-                    
-                    lack_badges = ", ".join([get_badge_html(x) for x in user_saju['lacking_elements']])
-                    dom_badges = ", ".join([get_badge_html(x) for x in user_saju['dominant_elements']])
-                    
-                    st.markdown(f"""
-                    <div class="mystic-card" style="padding: 18px; margin-bottom: 0;">
-                        <p>👤 <b>나의 일간 본성:</b> <b>{user_saju['day_stem_kr']}화({user_saju['day_stem']})</b> - {saju_engine.STEMS_INFO[user_saju['day_stem']]['desc']}</p>
-                        <p>❄️ <b>사주 온도(조후):</b> {user_saju['temp_kr']}</p>
-                        <p>📈 <b>강한 기운 (과다오행):</b> {dom_badges} (이 기운이 나의 주된 행동 양식을 결정합니다)</p>
-                        <p>📉 <b>부족한 기운 (결핍오행):</b> {lack_badges} (나와 궁합이 맞는 상대가 이 기운을 보완해 주어야 편안함을 느낍니다)</p>
-                    </div>
-                    """, unsafe_allow_html=True)
+                render_saju_analysis(user_saju, u_name)
                 
                 st.markdown("<br/><hr/><br/>", unsafe_allow_html=True)
                 st.markdown("### 🏆 당신과 가장 잘 맞는 인연 TOP 3")
@@ -752,18 +754,19 @@ with tab_match_couple:
                 st.balloons()
                 st.success("✨ 두 분의 궁합 분석이 완료되었습니다!")
                 
-                st.markdown(f"### 💖 {c_name1} 님과 {c_name2} 님의 궁합 점수: <span style='color:#ffeb3b; font-size:2rem;'>{comp['score']}점</span>", unsafe_allow_html=True)
+                st.markdown("---")
+                st.markdown(f"#### 🧑‍🦰 남성측({c_name1}) 사주 분석")
+                render_saju_analysis(saju1, c_name1)
+                
+                st.markdown("---")
+                st.markdown(f"#### 👩‍🦱 여성측({c_name2}) 사주 분석")
+                render_saju_analysis(saju2, c_name2)
+                
+                st.markdown("---")
+                st.markdown(f"### 💖 {c_name1} 님과 {c_name2} 님의 최종 궁합 점수: <span style='color:#ffeb3b; font-size:2rem;'>{comp['score']}점</span>", unsafe_allow_html=True)
                 st.markdown(f"**궁합 등급:** {comp['grade']}")
                 st.markdown("<br/>", unsafe_allow_html=True)
                 
-                col_res1, col_res2 = st.columns(2)
-                with col_res1:
-                    st.markdown(f"##### 🧑‍🦰 남성({c_name1})의 일간 (성향)")
-                    st.info(f"{saju1['day_stem_kr']}화({saju1['day_stem']}): {saju_engine.STEMS_INFO[saju1['day_stem']]['desc']}")
-                with col_res2:
-                    st.markdown(f"##### 👩‍🦱 여성({c_name2})의 일간 (성향)")
-                    st.info(f"{saju2['day_stem_kr']}화({saju2['day_stem']}): {saju_engine.STEMS_INFO[saju2['day_stem']]['desc']}")
-                    
                 st.markdown("##### 🎯 부문별 궁합 해설")
                 score_breakdown = comp['breakdown']
                 exps = comp['explanations']
