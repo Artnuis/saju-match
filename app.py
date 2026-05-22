@@ -15,6 +15,41 @@ def get_solar_date(input_date: datetime.date, calendar_type: str) -> datetime.da
     if calendar.setLunarDate(input_date.year, input_date.month, input_date.day, is_intercalation):
         return datetime.date(calendar.solarYear, calendar.solarMonth, calendar.solarDay)
     return input_date
+
+TIME_BRANCHES = [
+    "🐭 자(子)시 (23:30 ~ 01:29)",
+    "🐮 축(丑)시 (01:30 ~ 03:29)",
+    "🐯 인(寅)시 (03:30 ~ 05:29)",
+    "🐰 묘(卯)시 (05:30 ~ 07:29)",
+    "🐲 진(辰)시 (07:30 ~ 09:29)",
+    "🐍 사(巳)시 (09:30 ~ 11:29)",
+    "🐴 오(午)시 (11:30 ~ 13:29)",
+    "🐑 미(未)시 (13:30 ~ 15:29)",
+    "🐵 신(申)시 (15:30 ~ 17:29)",
+    "🐔 유(酉)시 (17:30 ~ 19:29)",
+    "🐶 술(戌)시 (19:30 ~ 21:29)",
+    "🐷 해(亥)시 (21:30 ~ 23:29)"
+]
+
+def get_hour_min_from_branch(branch_str: str) -> tuple:
+    if not branch_str: return (None, 0)
+    idx = TIME_BRANCHES.index(branch_str) if branch_str in TIME_BRANCHES else 0
+    return (idx * 2, 0)
+
+def get_branch_from_time_str(time_str: str) -> str:
+    if not time_str: return TIME_BRANCHES[0]
+    if time_str in TIME_BRANCHES: return time_str
+    try:
+        h, m = map(int, time_str.split(':'))
+        total_m = h * 60 + m
+        if total_m >= 23*60+30 or total_m < 1*60+30:
+            return TIME_BRANCHES[0]
+        for i in range(1, 12):
+            if (2*i - 1)*60 + 30 <= total_m < (2*i + 1)*60 + 30:
+                return TIME_BRANCHES[i]
+        return TIME_BRANCHES[0]
+    except:
+        return TIME_BRANCHES[0]
 # Set page config first
 st.set_page_config(
     page_title="🔮 재미로 보는 사주 궁합 매칭",
@@ -420,12 +455,8 @@ with tab_match_solo:
         st.session_state.u_calendar = "양력"
     if 'u_has_time' not in st.session_state:
         st.session_state.u_has_time = False
-    if 'u_ampm' not in st.session_state:
-        st.session_state.u_ampm = "오전 (AM)"
-    if 'u_hour_12' not in st.session_state:
-        st.session_state.u_hour_12 = 12
-    if 'u_minute' not in st.session_state:
-        st.session_state.u_minute = 0
+    if 'u_time_branch' not in st.session_state:
+        st.session_state.u_time_branch = TIME_BRANCHES[0]
     if 'search_results' not in st.session_state:
         st.session_state.search_results = []
         
@@ -476,20 +507,7 @@ with tab_match_solo:
                 st.session_state.u_calendar = selected_user.get('calendar', '양력')
                 st.session_state.u_has_time = selected_user.get('has_time', False)
                 if selected_user.get('has_time') and selected_user.get('birth_time'):
-                    h24, m = map(int, selected_user['birth_time'].split(':'))
-                    st.session_state.u_minute = m
-                    if h24 == 0:
-                        st.session_state.u_ampm = "오전 (AM)"
-                        st.session_state.u_hour_12 = 12
-                    elif h24 < 12:
-                        st.session_state.u_ampm = "오전 (AM)"
-                        st.session_state.u_hour_12 = h24
-                    elif h24 == 12:
-                        st.session_state.u_ampm = "오후 (PM)"
-                        st.session_state.u_hour_12 = 12
-                    else:
-                        st.session_state.u_ampm = "오후 (PM)"
-                        st.session_state.u_hour_12 = h24 - 12
+                    st.session_state.u_time_branch = get_branch_from_time_str(selected_user['birth_time'])
                 st.rerun()
                 
         with col_del:
@@ -524,22 +542,12 @@ with tab_match_solo:
         
         u_has_time = st.checkbox("태어난 시간을 아시나요?", key="u_has_time")
         if u_has_time:
-            time_cols = st.columns(3)
-            with time_cols[0]:
-                u_ampm = st.selectbox("오전/오후", ["오전 (AM)", "오후 (PM)"], key="u_ampm")
-            with time_cols[1]:
-                u_hour_12 = st.selectbox("시간 (1시~12시)", list(range(1, 13)), key="u_hour_12")
-            with time_cols[2]:
-                u_minute = st.selectbox("분", [0, 10, 20, 30, 40, 50], key="u_minute")
-            
-            # Calculate 24-hour hour
-            if u_ampm == "오전 (AM)":
-                u_hour = 0 if u_hour_12 == 12 else u_hour_12
-            else:
-                u_hour = 12 if u_hour_12 == 12 else u_hour_12 + 12
+            u_time_branch = st.selectbox("태어난 시간 (12지시)", TIME_BRANCHES, key="u_time_branch")
+            u_hour, u_minute = get_hour_min_from_branch(u_time_branch)
         else:
             u_hour = None
             u_minute = 0
+            u_time_branch = None
             
     # Actions Layout: Save Profile & Run Matching
     col_act1, col_act2 = st.columns(2)
@@ -551,7 +559,7 @@ with tab_match_solo:
             else:
                 users_db = load_users_db()
                 if u_has_time:
-                    birth_time_str = f"{u_hour:02d}:{u_minute:02d}"
+                    birth_time_str = u_time_branch
                 else:
                     birth_time_str = None
                 
@@ -608,7 +616,7 @@ with tab_match_solo:
             if user_saju:
                 # 동의를 받았으므로 DB에 사용자 정보 자동 저장/업데이트
                 users_db = load_users_db()
-                birth_time_str = f"{u_hour:02d}:{u_minute:02d}" if u_has_time else None
+                birth_time_str = u_time_branch if u_has_time else None
                 new_user = {
                     "이름": u_name.strip(),
                     "phone": u_phone.strip(),
@@ -821,12 +829,8 @@ with tab_match_couple:
         c_has_time1 = st.checkbox("태어난 시간을 아시나요? (남성)", key="c_has_time1")
         c_hour1, c_min1 = None, 0
         if c_has_time1:
-            tc1 = st.columns(3)
-            c_ampm1 = tc1[0].selectbox("오전/오후 (남성)", ["오전 (AM)", "오후 (PM)"], key="c_ampm1")
-            c_h12_1 = tc1[1].selectbox("시간 (남성)", list(range(1, 13)), key="c_h12_1")
-            c_min1 = tc1[2].selectbox("분 (남성)", [0, 10, 20, 30, 40, 50], key="c_min1")
-            c_hour1 = c_h12_1 if c_ampm1 == "오전 (AM)" else (c_h12_1 + 12 if c_h12_1 < 12 else 12)
-            if c_ampm1 == "오전 (AM)" and c_h12_1 == 12: c_hour1 = 0
+            c_time_branch1 = st.selectbox("태어난 시간 (남성)", TIME_BRANCHES, key="c_time_branch1")
+            c_hour1, c_min1 = get_hour_min_from_branch(c_time_branch1)
             
     with col_c2:
         st.markdown("#### 👩‍🦱 여성 사주 정보")
@@ -836,12 +840,8 @@ with tab_match_couple:
         c_has_time2 = st.checkbox("태어난 시간을 아시나요? (여성)", key="c_has_time2")
         c_hour2, c_min2 = None, 0
         if c_has_time2:
-            tc2 = st.columns(3)
-            c_ampm2 = tc2[0].selectbox("오전/오후 (여성)", ["오전 (AM)", "오후 (PM)"], key="c_ampm2")
-            c_h12_2 = tc2[1].selectbox("시간 (여성)", list(range(1, 13)), key="c_h12_2")
-            c_min2 = tc2[2].selectbox("분 (여성)", [0, 10, 20, 30, 40, 50], key="c_min2")
-            c_hour2 = c_h12_2 if c_ampm2 == "오전 (AM)" else (c_h12_2 + 12 if c_h12_2 < 12 else 12)
-            if c_ampm2 == "오전 (AM)" and c_h12_2 == 12: c_hour2 = 0
+            c_time_branch2 = st.selectbox("태어난 시간 (여성)", TIME_BRANCHES, key="c_time_branch2")
+            c_hour2, c_min2 = get_hour_min_from_branch(c_time_branch2)
             
     run_couple = st.button("💞 우리 궁합 점수 확인하기")
     
