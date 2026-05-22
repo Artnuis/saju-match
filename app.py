@@ -899,15 +899,17 @@ if is_maker:
             if not friends_db:
                 st.write("삭제할 친구가 없습니다.")
             else:
-                with st.form("del_friend_form"):
-                    friend_names = [f['이름'] for f in friends_db]
-                    del_name = st.selectbox("삭제할 친구 선택", friend_names)
-                    submit_del = st.form_submit_button("선택한 친구 삭제")
-                    
-                    if submit_del:
-                        friends_db = [f for f in friends_db if f['이름'] != del_name]
+                friend_names = [f['이름'] for f in friends_db]
+                del_names = st.multiselect("삭제할 친구들을 선택하세요 (여러 명 선택 가능)", friend_names)
+                submit_del = st.button("선택한 친구 일괄 삭제")
+                
+                if submit_del:
+                    if not del_names:
+                        st.warning("⚠️ 삭제할 친구를 최소 1명 이상 선택해 주세요.")
+                    else:
+                        friends_db = [f for f in friends_db if f['이름'] not in del_names]
                         save_friends_db(friends_db)
-                        st.success(f"🗑️ **{del_name}**님이 데이터베이스에서 삭제되었습니다.")
+                        st.success(f"🗑️ 선택하신 {len(del_names)}명의 데이터가 완전히 삭제되었습니다.")
                         st.rerun()
 
 # ==========================================
