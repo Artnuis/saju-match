@@ -539,8 +539,26 @@ with tab_match_solo:
                 user_saju = None
                 
             if user_saju:
+                # 동의를 받았으므로 DB에 사용자 정보 자동 저장/업데이트
+                users_db = load_users_db()
+                birth_time_str = f"{u_hour:02d}:{u_minute:02d}" if u_has_time else None
+                new_user = {
+                    "이름": u_name.strip(),
+                    "성별": u_gender,
+                    "pref": u_pref,
+                    "birth_date": u_birth.strftime("%Y-%m-%d"),
+                    "has_time": u_has_time,
+                    "birth_time": birth_time_str
+                }
+                existing_idx = next((idx for idx, u in enumerate(users_db) if u['이름'] == u_name.strip()), None)
+                if existing_idx is not None:
+                    users_db[existing_idx] = new_user
+                else:
+                    users_db.append(new_user)
+                save_users_db(users_db)
+                
                 st.balloons()
-                st.success(f"✨ **{u_name}**님의 사주 분석이 성공적으로 완료되었습니다!")
+                st.success(f"✨ **{u_name}**님의 사주 분석이 완료되었으며 매칭 풀에 자동 등록되었습니다!")
                 
                 # Show User's Own Saju Brief
                 st.markdown(f"#### 🔮 {u_name}님의 사주 팔자 분석")
