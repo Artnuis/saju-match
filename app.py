@@ -554,6 +554,8 @@ with tab_match_solo:
         st.session_state.u_time_branch = TIME_BRANCHES[0]
     if 'search_results' not in st.session_state:
         st.session_state.search_results = []
+    if 'u_memo' not in st.session_state:
+        st.session_state.u_memo = ""
         
     st.markdown("<h3 style='margin-top: 10px;'>🔍 이전 프로필 불러오기</h3>", unsafe_allow_html=True)
     
@@ -610,7 +612,8 @@ with tab_match_solo:
                     st.session_state.u_time_branch = get_branch_from_time_str(t_val)
                 else:
                     st.session_state.u_has_time = False
-                    
+                
+                st.session_state.u_memo = selected_user.get('user_memo', '')
                 st.session_state.search_results = []
                 st.rerun()
                 
@@ -634,6 +637,7 @@ with tab_match_solo:
         u_phone = st.text_input("핸드폰 뒷자리 (선택. 향후 정보 불러오기/삭제 용도로만 안전하게 사용됩니다)", max_chars=4, key="u_phone", placeholder="예: 1234")
         u_gender = st.selectbox("나의 성별", ["여자", "남자"], key="u_gender")
         u_pref = st.selectbox("어떤 상대와 매칭할까요?", ["모든 성별", "남자만", "여자만"], key="u_pref")
+        u_memo = st.text_input("✍️ 한줄 자기소개 (선택)", key="u_memo", placeholder="예: MBTI는 ENFP, 커피보다 녹차파")
         
     with col_input2:
         u_birth = st.date_input(
@@ -675,11 +679,13 @@ with tab_match_solo:
                     "birth_date": u_birth.strftime("%Y-%m-%d"),
                     "calendar": u_calendar,
                     "has_time": u_has_time,
-                    "birth_time": birth_time_str
+                    "birth_time": birth_time_str,
+                    "user_memo": u_memo.strip()
                 }
                 
                 existing_idx = next((idx for idx, u in enumerate(users_db) if u['이름'] == u_name.strip()), None)
                 if existing_idx is not None:
+                    new_user['maker_memo'] = users_db[existing_idx].get('maker_memo', '')
                     users_db[existing_idx] = new_user
                     st.success(f"💾 **{u_name.strip()}**님의 프로필이 업데이트되었습니다!")
                 else:
@@ -691,6 +697,7 @@ with tab_match_solo:
                 f_db = load_friends_db()
                 existing_f_idx = next((idx for idx, f in enumerate(f_db) if f['이름'] == u_name.strip()), None)
                 if existing_f_idx is not None:
+                    new_user['maker_memo'] = f_db[existing_f_idx].get('maker_memo', '')
                     f_db[existing_f_idx] = new_user
                 else:
                     f_db.append(new_user)
@@ -739,10 +746,12 @@ with tab_match_solo:
                     "birth_date": u_birth.strftime("%Y-%m-%d"),
                     "calendar": u_calendar,
                     "has_time": u_has_time,
-                    "birth_time": birth_time_str
+                    "birth_time": birth_time_str,
+                    "user_memo": u_memo.strip()
                 }
                 existing_idx = next((idx for idx, u in enumerate(users_db) if u['이름'] == u_name.strip()), None)
                 if existing_idx is not None:
+                    new_user['maker_memo'] = users_db[existing_idx].get('maker_memo', '')
                     users_db[existing_idx] = new_user
                 else:
                     users_db.append(new_user)
@@ -751,6 +760,7 @@ with tab_match_solo:
                 # friends_db (전체 매칭 풀) 에도 저장
                 existing_f_idx = next((idx for idx, f in enumerate(friends_db) if f['이름'] == u_name.strip()), None)
                 if existing_f_idx is not None:
+                    new_user['maker_memo'] = friends_db[existing_f_idx].get('maker_memo', '')
                     friends_db[existing_f_idx] = new_user
                 else:
                     friends_db.append(new_user)
@@ -849,7 +859,7 @@ with tab_match_solo:
                                 <span class="score-badge">궁합 점수: {comp['total_score']}점</span>
                             </div>
                             <p style="font-size: 1rem; color: #e1bee7; font-style: italic; margin-top: -5px; margin-bottom: 15px;">
-                                ✍️ 친구 메모: "{f_info.get('memo', '특별한 정보가 없습니다.')}"
+                                ✍️ 자기소개: "{f_info.get('user_memo', '아직 자기소개가 없습니다.')}"
                             </p>
                             <div class="grade-text">{comp['grade']}</div>
                             <div style="margin-bottom: 15px; font-weight: 500; line-height: 1.6;">{comp['grade_desc']}</div>
@@ -1082,7 +1092,8 @@ if is_maker:
                         "시간": friend.get('birth_time') or '모름',
                         "태어난 일주": day_pillar_str,
                         "오행 및 동물": f"{animal} ({element})",
-                        "메모": friend.get('memo', '')
+                        "자기소개": friend.get('user_memo', ''),
+                        "제작자 메모": friend.get('maker_memo', friend.get('memo', ''))
                     })
                 except Exception as e:
                     table_data.append({
@@ -1095,7 +1106,8 @@ if is_maker:
                         "시간": friend.get('birth_time') or '모름',
                         "태어난 일주": f"에러: {e}",
                         "오행 및 동물": "-",
-                        "메모": "-"
+                        "자기소개": "-",
+                        "제작자 메모": "-"
                     })
             
             df = pd.DataFrame(table_data)
@@ -1135,7 +1147,7 @@ if is_maker:
                     else:
                         add_hour = 12 if add_hour_12 == 12 else add_hour_12 + 12
                 
-                add_memo = st.text_input("간단한 메모 (성격, 키워드 등)", placeholder="예: 유쾌한 친구, 운동 매니아")
+                add_maker_memo = st.text_input("제작자 메모 (제작자만 볼 수 있음)", placeholder="예: 유쾌한 친구, 운동 매니아")
                 
                 submit_add = st.button("친구 데이터베이스에 등록")
                 if submit_add:
@@ -1149,7 +1161,7 @@ if is_maker:
                             "성별": add_gender,
                             "birth_date": add_birth.strftime("%Y-%m-%d"),
                             "birth_time": f"{add_hour:02d}:{add_minute:02d}" if add_has_time else None,
-                            "memo": add_memo.strip()
+                            "maker_memo": add_maker_memo.strip()
                         }
                         friends_db.append(new_friend)
                         save_friends_db(friends_db)
