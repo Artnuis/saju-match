@@ -1186,6 +1186,88 @@ if is_maker:
                         st.success(f"🗑️ 선택하신 {len(del_names)}명의 데이터가 완전히 삭제되었습니다.")
                         st.rerun()
 
+        # ---- 친구 정보 수정 섹션 ----
+        st.write("---")
+        st.markdown("<h4>✏️ 등록된 친구 정보 수정하기</h4>", unsafe_allow_html=True)
+        
+        if not friends_db:
+            st.info("수정할 친구가 없습니다.")
+        else:
+            edit_names = [f.get('이름', '이름없음') for f in friends_db]
+            edit_sel = st.selectbox("수정할 친구를 선택하세요", ["선택하세요"] + edit_names, key="edit_sel")
+            
+            if edit_sel != "선택하세요":
+                edit_friend = next((f for f in friends_db if f.get('이름') == edit_sel), None)
+                if edit_friend:
+                    st.markdown(f"**'{edit_sel}'님의 정보를 수정합니다.** 수정할 항목만 바꾸고 '저장' 버튼을 눌러주세요.", unsafe_allow_html=True)
+                    
+                    ecol1, ecol2 = st.columns(2)
+                    with ecol1:
+                        edit_name = st.text_input("이름", value=edit_friend.get('이름', ''), key="edit_name")
+                        edit_phone = st.text_input("핸드폰 뒷자리", value=edit_friend.get('phone', ''), max_chars=4, key="edit_phone")
+                        edit_gender = st.selectbox("성별", ["남자", "여자"], index=0 if edit_friend.get('성별', '남자') == '남자' else 1, key="edit_gender")
+                        edit_maker_memo = st.text_input("제작자 메모", value=edit_friend.get('maker_memo', edit_friend.get('memo', '')), key="edit_maker_memo")
+                        edit_user_memo = st.text_input("자기소개 (사용자 입력값)", value=edit_friend.get('user_memo', ''), key="edit_user_memo")
+                        
+                    with ecol2:
+                        try:
+                            edit_birth_val = datetime.datetime.strptime(edit_friend.get('birth_date', '1995-01-01'), "%Y-%m-%d").date()
+                        except:
+                            edit_birth_val = datetime.date(1995, 1, 1)
+                        edit_birth = st.date_input("생년월일", value=edit_birth_val, min_value=datetime.date(1900, 1, 1), max_value=datetime.date(2100, 12, 31), key="edit_birth")
+                        
+                        cal_options = ["양력", "음력(평달)", "음력(윤달)"]
+                        cur_cal = edit_friend.get('calendar', '양력')
+                        cal_idx = cal_options.index(cur_cal) if cur_cal in cal_options else 0
+                        edit_calendar = st.radio("달력 종류", cal_options, index=cal_idx, key="edit_calendar", horizontal=True)
+                        
+                        old_time = edit_friend.get('birth_time')
+                        edit_has_time = st.checkbox("태어난 시간 수정", value=bool(old_time), key="edit_has_time")
+                        if edit_has_time:
+                            if old_time:
+                                old_branch = get_branch_from_time_str(old_time)
+                                branch_idx = TIME_BRANCHES.index(old_branch) if old_branch in TIME_BRANCHES else 0
+                            else:
+                                branch_idx = 0
+                            edit_time_branch = st.selectbox("태어난 시간 (12지시)", TIME_BRANCHES, index=branch_idx, key="edit_time_branch")
+                            edit_time_str = edit_time_branch
+                        else:
+                            edit_time_str = None
+                    
+                    if st.button("💾 수정사항 저장", key="edit_save"):
+                        if not edit_name.strip():
+                            st.error("이름을 입력해 주세요!")
+                        else:
+                            updated = {
+                                "이름": edit_name.strip(),
+                                "phone": edit_phone.strip(),
+                                "성별": edit_gender,
+                                "pref": edit_friend.get('pref', '모든 성별'),
+                                "birth_date": edit_birth.strftime("%Y-%m-%d"),
+                                "calendar": edit_calendar,
+                                "has_time": edit_has_time,
+                                "birth_time": edit_time_str,
+                                "user_memo": edit_user_memo.strip(),
+                                "maker_memo": edit_maker_memo.strip()
+                            }
+                            
+                            # friends_db 업데이트
+                            for i, f in enumerate(friends_db):
+                                if f.get('이름') == edit_sel:
+                                    friends_db[i] = updated
+                                    break
+                            save_friends_db(friends_db)
+                            
+                            # users_db 동기화
+                            u_db = load_users_db()
+                            for i, u in enumerate(u_db):
+                                if u.get('이름') == edit_sel:
+                                    u_db[i] = updated
+                                    break
+                            save_users_db(u_db)
+                            
+                            st.success(f"✅ **{edit_name.strip()}**님의 정보가 수정되었습니다!")
+                            st.rerun()
 # ==========================================
 # TAB 3: 사주 오행 가이드 (Saju Guide)
 # ==========================================
