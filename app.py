@@ -102,8 +102,9 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+import importlib
 import saju_engine
-
+importlib.reload(saju_engine)
 # Database File Path
 DB_PATH = 'friends_db.json'
 USER_DB_PATH = 'users_db.json'
@@ -593,15 +594,24 @@ with tab_match_solo:
         col_load, col_del = st.columns([1, 1])
         with col_load:
             if st.button("⬇️ 이 프로필 정보로 아래 입력창 채우기"):
-                st.session_state.u_name = selected_user['이름']
+                st.session_state.u_name = selected_user.get('이름', '')
                 st.session_state.u_phone = selected_user.get('phone', '')
-                st.session_state.u_gender = selected_user['성별']
+                st.session_state.u_gender = selected_user.get('성별', '여자')
                 st.session_state.u_pref = selected_user.get('pref', '모든 성별')
-                st.session_state.u_birth = datetime.datetime.strptime(selected_user['birth_date'], "%Y-%m-%d").date()
+                try:
+                    st.session_state.u_birth = datetime.datetime.strptime(selected_user.get('birth_date', '1995-01-01'), "%Y-%m-%d").date()
+                except:
+                    st.session_state.u_birth = datetime.date(1995, 1, 1)
                 st.session_state.u_calendar = selected_user.get('calendar', '양력')
-                st.session_state.u_has_time = selected_user.get('has_time', False)
-                if selected_user.get('has_time') and selected_user.get('birth_time'):
-                    st.session_state.u_time_branch = get_branch_from_time_str(selected_user['birth_time'])
+                
+                t_val = selected_user.get('birth_time')
+                if t_val:
+                    st.session_state.u_has_time = True
+                    st.session_state.u_time_branch = get_branch_from_time_str(t_val)
+                else:
+                    st.session_state.u_has_time = False
+                    
+                st.session_state.search_results = []
                 st.rerun()
                 
         with col_del:
@@ -676,6 +686,16 @@ with tab_match_solo:
                     users_db.append(new_user)
                     st.success(f"💾 **{u_name.strip()}**님의 프로필이 새로 저장되었습니다!")
                 save_users_db(users_db)
+                
+                # friends_db 동기화
+                f_db = load_friends_db()
+                existing_f_idx = next((idx for idx, f in enumerate(f_db) if f['이름'] == u_name.strip()), None)
+                if existing_f_idx is not None:
+                    f_db[existing_f_idx] = new_user
+                else:
+                    f_db.append(new_user)
+                save_friends_db(f_db)
+                
                 st.rerun()
                 
     with col_act2:
@@ -760,14 +780,15 @@ with tab_match_solo:
                 
                 for friend in combined_pool:
                     # Filter by gender preference
-                    if u_pref == "남자만" and friend['성별'] != "남자":
+                    f_gender = friend.get('성별', '알수없음')
+                    if u_pref == "남자만" and f_gender != "남자":
                         continue
-                    if u_pref == "여자만" and friend['성별'] != "여자":
+                    if u_pref == "여자만" and f_gender != "여자":
                         continue
                     
                     # Parse birth
                     try:
-                        f_birth_str = friend['birth_date']
+                        f_birth_str = friend.get('birth_date', '1995-01-01')
                         f_birth_date = datetime.datetime.strptime(f_birth_str, "%Y-%m-%d").date()
                         
                         f_calendar = friend.get('calendar', '양력')
@@ -1027,7 +1048,7 @@ if is_maker:
             table_data = []
             for idx, friend in enumerate(friends_db):
                 try:
-                    f_birth = datetime.datetime.strptime(friend['birth_date'], "%Y-%m-%d").date()
+                    f_birth = datetime.datetime.strptime(friend.get('birth_date', '1995-01-01'), "%Y-%m-%d").date()
                     
                     # 달력 타입 변환 로직 (기본은 양력, 있으면 음력 -> 양력 변환)
                     f_calendar = friend.get('calendar', '양력')
@@ -1053,10 +1074,10 @@ if is_maker:
                     
                     table_data.append({
                         "번호": idx + 1,
-                        "이름": friend['이름'],
+                        "이름": friend.get('이름', '이름없음'),
                         "핸드폰": friend.get('phone', '-'),
-                        "성별": friend['성별'],
-                        "생년월일": friend['birth_date'],
+                        "성별": friend.get('성별', '알수없음'),
+                        "생년월일": friend.get('birth_date', '1995-01-01'),
                         "달력": f_calendar,
                         "시간": friend.get('birth_time') or '모름',
                         "태어난 일주": day_pillar_str,
@@ -1066,7 +1087,7 @@ if is_maker:
                 except Exception as e:
                     table_data.append({
                         "번호": idx + 1,
-                        "이름": friend['이름'] + " (에러)",
+                        "이름": friend.get('이름', '이름없음') + " (에러)",
                         "핸드폰": friend.get('phone', '-'),
                         "성별": friend.get('성별', '-'),
                         "생년월일": friend.get('birth_date', '-'),

@@ -218,11 +218,38 @@ def analyze_saju(year: int, month: int, day: int, hour: Optional[int] = None, mi
         element_power_scores[se] += power_weights.get(f"{p_name}_stem", 0.0)
         element_power_scores[be] += power_weights.get(f"{p_name}_branch", 0.0)
         
-    total_power = sum(element_power_scores.values())
+    # Apply Sangsaeng (상생) Boost: A generates B, so B gets +40% of A's power.
+    sangsaeng_map = {
+        '목': '화',
+        '화': '토',
+        '토': '금',
+        '금': '수',
+        '수': '목'
+    }
+    
+    boosted_power_scores = element_power_scores.copy()
+    
+    # 1. 기본 상생 부스트 (받는 쪽이 주는 쪽의 30%를 흡수)
+    for giver, receiver in sangsaeng_map.items():
+        boosted_power_scores[receiver] += element_power_scores[giver] * 0.3
+        
+    # 2. '월지(Month Branch)' 특별 부스트 (가장 강력한 계절의 힘)
+    month_branch_el = pillars['month']['branch_element']
+    receiver_of_month = sangsaeng_map[month_branch_el]
+    boosted_power_scores[receiver_of_month] += 25.0  # 계절의 생조를 받아 폭발적 증가
+    
+    # 3. '일간(Day Stem, 나)' 특별 부스트 (내가 월지의 생을 받거나 같은 기운일 때 극강해짐)
+    day_stem_el = pillars['day']['stem_element']
+    if receiver_of_month == day_stem_el or month_branch_el == day_stem_el:
+        boosted_power_scores[day_stem_el] += 20.0
+        
+    total_power = sum(boosted_power_scores.values())
     if total_power > 0:
-        element_power_pct = {k: round((v / total_power) * 100, 1) for k, v in element_power_scores.items()}
+        element_power_pct = {k: round((v / total_power) * 100, 1) for k, v in boosted_power_scores.items()}
     else:
-        element_power_pct = {k: 0.0 for k in element_power_scores.keys()}
+        element_power_pct = {k: 0.0 for k in boosted_power_scores.keys()}
+        
+    element_power_scores = boosted_power_scores
     
     # Identify Dominant (과다) and Deficient/Lacking (결핍) Elements
     # Lacking: count is 0. If multiple are 0, we list all. If none is 0, list the minimum.
