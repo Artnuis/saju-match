@@ -8,10 +8,10 @@ from typing import Dict, Any, List, Optional
 
 # Set page config first
 st.set_page_config(
-    page_title="🔮 재미로 보는 솔로 사주 궁합 매칭",
+    page_title="🔮 재미로 보는 사주 궁합 매칭",
     page_icon="🔮",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 import saju_engine
@@ -336,14 +336,14 @@ friends_db = load_friends_db()
 
 # Navigation Tabs based on Maker Mode
 if is_maker:
-    tab_match, tab_friends, tab_guide = st.tabs(["💘 최고의 궁합 매칭", "👥 친구 관리 및 등록 (제작자 전용)", "📖 사주 오행 가이드"])
+    tab_match_solo, tab_match_couple, tab_friends, tab_guide = st.tabs(["💘 솔로 궁합 매치", "💞 커플 궁합 매치", "👥 친구 관리 및 등록 (제작자 전용)", "📖 사주 오행 가이드"])
 else:
-    tab_match, tab_guide = st.tabs(["💘 최고의 궁합 매칭", "📖 사주 오행 가이드"])
+    tab_match_solo, tab_match_couple, tab_guide = st.tabs(["💘 솔로 궁합 매치", "💞 커플 궁합 매치", "📖 사주 오행 가이드"])
 
 # ==========================================
-# TAB 1: 궁합 매칭 (Match Finder)
+# TAB 1: 솔로 궁합 매칭 (Match Finder)
 # ==========================================
-with tab_match:
+with tab_match_solo:
     st.markdown("<h3 style='margin-top: 10px;'>내 정보 입력하기</h3>", unsafe_allow_html=True)
     
     # Load user profiles
@@ -475,13 +475,17 @@ with tab_match:
                 st.rerun()
                 
     with col_act2:
+        st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+        agree_save = st.checkbox("💡 (필수) 입력하신 사주 정보와 닉네임은 매칭 풀에 저장됩니다. 동의하시겠습니까?")
         run_matching = st.button("💘 최고의 궁합 매칭 시작하기")
         
     if run_matching:
         if not u_name.strip():
             st.warning("⚠️ 이름을 입력해 주세요!")
-        elif not friends_db:
-            st.warning("⚠️ 등록된 친구 데이터가 없습니다. 두 번째 탭에서 친구를 추가하거나 JSON 파일 상태를 확인해 주세요!")
+        elif not agree_save:
+            st.warning("⚠️ 매칭을 진행하려면 개인정보 저장에 동의해 주세요.")
+        elif not friends_db and not users_db:
+            st.warning("⚠️ 매칭할 수 있는 대상이 없습니다.")
         else:
             # 1. Analyze User Saju
             try:
@@ -697,6 +701,90 @@ with tab_match:
                             </div>
                             """, unsafe_allow_html=True)
                             st.markdown("<br/>", unsafe_allow_html=True)
+
+# ==========================================
+# TAB 1-2: 커플 궁합 매치 (Couple Match)
+# ==========================================
+with tab_match_couple:
+    st.markdown("<h3 style='margin-top: 10px;'>💞 우리 커플의 궁합 점수는?</h3>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #b39ddb;'>두 분의 생년월일을 입력하시면, 사주 오행과 성향을 분석하여 궁합 점수와 특징을 알려드립니다. (※ 입력된 정보는 데이터베이스에 저장되지 않습니다.)</p>", unsafe_allow_html=True)
+    
+    col_c1, col_c2 = st.columns(2)
+    with col_c1:
+        st.markdown("#### 🧑‍🦰 본인 (A)")
+        c_name1 = st.text_input("닉네임 (A)", key="c_name1")
+        c_birth1 = st.date_input("생년월일 (A)", key="c_birth1", min_value=datetime.date(1900, 1, 1), max_value=datetime.date(2100, 12, 31), value=datetime.date(1995, 1, 1))
+        c_has_time1 = st.checkbox("태어난 시간을 아시나요? (A)", key="c_has_time1")
+        c_hour1, c_min1 = None, 0
+        if c_has_time1:
+            tc1 = st.columns(3)
+            c_ampm1 = tc1[0].selectbox("오전/오후 (A)", ["오전 (AM)", "오후 (PM)"], key="c_ampm1")
+            c_h12_1 = tc1[1].selectbox("시간 (A)", list(range(1, 13)), key="c_h12_1")
+            c_min1 = tc1[2].selectbox("분 (A)", [0, 10, 20, 30, 40, 50], key="c_min1")
+            c_hour1 = c_h12_1 if c_ampm1 == "오전 (AM)" else (c_h12_1 + 12 if c_h12_1 < 12 else 12)
+            if c_ampm1 == "오전 (AM)" and c_h12_1 == 12: c_hour1 = 0
+            
+    with col_c2:
+        st.markdown("#### 👩‍🦱 상대방 (B)")
+        c_name2 = st.text_input("닉네임 (B)", key="c_name2")
+        c_birth2 = st.date_input("생년월일 (B)", key="c_birth2", min_value=datetime.date(1900, 1, 1), max_value=datetime.date(2100, 12, 31), value=datetime.date(1995, 1, 1))
+        c_has_time2 = st.checkbox("태어난 시간을 아시나요? (B)", key="c_has_time2")
+        c_hour2, c_min2 = None, 0
+        if c_has_time2:
+            tc2 = st.columns(3)
+            c_ampm2 = tc2[0].selectbox("오전/오후 (B)", ["오전 (AM)", "오후 (PM)"], key="c_ampm2")
+            c_h12_2 = tc2[1].selectbox("시간 (B)", list(range(1, 13)), key="c_h12_2")
+            c_min2 = tc2[2].selectbox("분 (B)", [0, 10, 20, 30, 40, 50], key="c_min2")
+            c_hour2 = c_h12_2 if c_ampm2 == "오전 (AM)" else (c_h12_2 + 12 if c_h12_2 < 12 else 12)
+            if c_ampm2 == "오전 (AM)" and c_h12_2 == 12: c_hour2 = 0
+            
+    run_couple = st.button("💞 우리 궁합 점수 확인하기")
+    
+    if run_couple:
+        if not c_name1.strip() or not c_name2.strip():
+            st.warning("⚠️ 두 분의 닉네임을 모두 입력해 주세요!")
+        else:
+            try:
+                saju1 = saju_engine.analyze_saju(c_birth1.year, c_birth1.month, c_birth1.day, c_hour1, c_min1)
+                saju2 = saju_engine.analyze_saju(c_birth2.year, c_birth2.month, c_birth2.day, c_hour2, c_min2)
+                
+                comp = saju_engine.calculate_compatibility(saju1, saju2)
+                st.balloons()
+                st.success("✨ 두 분의 궁합 분석이 완료되었습니다!")
+                
+                st.markdown(f"### 💖 {c_name1} 님과 {c_name2} 님의 궁합 점수: <span style='color:#ffeb3b; font-size:2rem;'>{comp['score']}점</span>", unsafe_allow_html=True)
+                st.markdown(f"**궁합 등급:** {comp['grade']}")
+                st.markdown("<br/>", unsafe_allow_html=True)
+                
+                col_res1, col_res2 = st.columns(2)
+                with col_res1:
+                    st.markdown(f"##### 🧑‍🦰 {c_name1}님의 일간 (성향)")
+                    st.info(f"{saju1['day_stem_kr']}화({saju1['day_stem']}): {saju_engine.STEMS_INFO[saju1['day_stem']]['desc']}")
+                with col_res2:
+                    st.markdown(f"##### 👩‍🦱 {c_name2}님의 일간 (성향)")
+                    st.info(f"{saju2['day_stem_kr']}화({saju2['day_stem']}): {saju_engine.STEMS_INFO[saju2['day_stem']]['desc']}")
+                    
+                st.markdown("##### 🎯 부문별 궁합 해설")
+                score_breakdown = comp['breakdown']
+                exps = comp['explanations']
+                
+                s_cols = st.columns(4)
+                with s_cols[0]: st.metric("정신적 조화 (일간)", f"{score_breakdown['stem_score']} / 30")
+                with s_cols[1]: st.metric("오행 보완성", f"{score_breakdown['def_score']} / 35")
+                with s_cols[2]: st.metric("현실적 조화 (일지)", f"{score_breakdown['branch_score']} / 20")
+                with s_cols[3]: st.metric("온도 조화 (조후)", f"{score_breakdown['temp_score']} / 15")
+                
+                st.markdown(f'''
+                <div class="mystic-card" style="margin-top: 15px;">
+                    <p>🧠 <b>가치관 및 소통 (일간):</b> {exps["stem_desc"]}</p>
+                    <p>🧩 <b>오행 시너지:</b> {exps["def_desc"]}</p>
+                    <p>🚪 <b>현실 및 환경 조화 (일지):</b> {exps["branch_desc"]}</p>
+                    <p>🌡️ <b>에너지 조율 (조후):</b> {exps["temp_desc"]}</p>
+                </div>
+                ''', unsafe_allow_html=True)
+                
+            except Exception as e:
+                st.error(f"궁합 분석 중 오류가 발생했습니다: {e}")
 
 # ==========================================
 # TAB 2: 친구 관리 및 등록 (Manage Friends)
