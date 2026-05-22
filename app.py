@@ -1173,6 +1173,12 @@ if is_maker:
                     else:
                         friends_db = [f for f in friends_db if f['이름'] not in del_names]
                         save_friends_db(friends_db)
+                        
+                        # users_db(사용자 앱 저장 데이터)에서도 동기화하여 삭제 (유령 데이터 방지)
+                        users_db = load_users_db()
+                        users_db = [u for u in users_db if u['이름'] not in del_names]
+                        save_users_db(users_db)
+                        
                         st.success(f"🗑️ 선택하신 {len(del_names)}명의 데이터가 완전히 삭제되었습니다.")
                         st.rerun()
 
