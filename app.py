@@ -424,7 +424,7 @@ with tab_match_solo:
     
     col_search_input, col_search_btn = st.columns([3, 1])
     with col_search_input:
-        search_phone = st.text_input("핸드폰 뒷자리 4자리를 입력하세요 (번호를 등록했던 사용자만 검색 가능)", max_chars=4, placeholder="예: 1234")
+        search_phone = st.text_input("핸드폰 뒷자리 4자리를 입력하세요 (이전에 번호를 등록했던 사용자만 검색 가능)", max_chars=4, placeholder="예: 1234")
     with col_search_btn:
         st.write("<div style='height: 28px;'></div>", unsafe_allow_html=True)
         do_search = st.button("🔍 프로필 검색")
@@ -497,7 +497,7 @@ with tab_match_solo:
     
     with col_input1:
         u_name = st.text_input("이름 또는 닉네임", key="u_name", placeholder="예: 길동이")
-        u_phone = st.text_input("핸드폰 뒷자리 (나중에 불러오기용)", max_chars=4, key="u_phone", placeholder="예: 1234")
+        u_phone = st.text_input("핸드폰 뒷자리 (선택. 향후 정보 불러오기/삭제 용도로만 안전하게 사용됩니다)", max_chars=4, key="u_phone", placeholder="예: 1234")
         u_gender = st.selectbox("나의 성별", ["여자", "남자"], key="u_gender")
         u_pref = st.selectbox("어떤 상대와 매칭할까요?", ["모든 성별", "남자만", "여자만"], key="u_pref")
         
