@@ -50,6 +50,49 @@ def get_branch_from_time_str(time_str: str) -> str:
         return TIME_BRANCHES[0]
     except:
         return TIME_BRANCHES[0]
+
+@st.cache_data(ttl=600)
+def get_best_match_record(friends_db_str: str) -> tuple:
+    friends_db = json.loads(friends_db_str)
+    if not friends_db or len(friends_db) < 2: return None
+    males = [f for f in friends_db if f.get('성별') == '남자']
+    females = [f for f in friends_db if f.get('성별') == '여자']
+    if not males or not females: return None
+    
+    best_score = -1
+    best_couple = None
+    
+    male_sajus = {}
+    for m in males:
+        try:
+            m_solar = get_solar_date(datetime.datetime.strptime(m['birth_date'], "%Y-%m-%d").date(), m.get('calendar', '양력'))
+            m_h, m_m = None, 0
+            if m.get('birth_time'):
+                if ":" in m['birth_time']: m_h, m_m = map(int, m['birth_time'].split(':'))
+                else: m_h, m_m = get_hour_min_from_branch(m['birth_time'])
+            male_sajus[m['이름']] = saju_engine.analyze_saju(m_solar.year, m_solar.month, m_solar.day, m_h, m_m)
+        except: pass
+
+    female_sajus = {}
+    for f in females:
+        try:
+            f_solar = get_solar_date(datetime.datetime.strptime(f['birth_date'], "%Y-%m-%d").date(), f.get('calendar', '양력'))
+            f_h, f_m = None, 0
+            if f.get('birth_time'):
+                if ":" in f['birth_time']: f_h, f_m = map(int, f['birth_time'].split(':'))
+                else: f_h, f_m = get_hour_min_from_branch(f['birth_time'])
+            female_sajus[f['이름']] = saju_engine.analyze_saju(f_solar.year, f_solar.month, f_solar.day, f_h, f_m)
+        except: pass
+
+    for m_name, m_saju in male_sajus.items():
+        for f_name, f_saju in female_sajus.items():
+            comp = saju_engine.get_compatibility(m_saju, f_saju)
+            if comp['total_score'] > best_score:
+                best_score = comp['total_score']
+                best_couple = (m_name, f_name, best_score)
+                
+    return best_couple
+
 # Set page config first
 st.set_page_config(
     page_title="🔮 재미로 보는 사주 궁합 매칭",
@@ -675,17 +718,27 @@ with tab_match_solo:
                     try:
                         f_birth_str = friend['birth_date']
                         f_birth_date = datetime.datetime.strptime(f_birth_str, "%Y-%m-%d").date()
+                        
+                        f_calendar = friend.get('calendar', '양력')
+                        f_solar_date = get_solar_date(f_birth_date, f_calendar)
+                        
                         f_time_str = friend.get('birth_time')
                         if f_time_str:
-                            f_h, f_m = map(int, f_time_str.split(':'))
+                            try:
+                                if ":" in f_time_str:
+                                    f_h, f_m = map(int, f_time_str.split(':'))
+                                else:
+                                    f_h, f_m = get_hour_min_from_branch(f_time_str)
+                            except Exception:
+                                f_h, f_m = None, 0
                         else:
                             f_h, f_m = None, 0
                             
                         # Analyze friend saju
                         friend_saju = saju_engine.analyze_saju(
-                            year=f_birth_date.year,
-                            month=f_birth_date.month,
-                            day=f_birth_date.day,
+                            year=f_solar_date.year,
+                            month=f_solar_date.month,
+                            day=f_solar_date.day,
                             hour=f_h,
                             minute=f_m
                         )
@@ -812,6 +865,12 @@ with tab_match_solo:
                             </div>
                             """, unsafe_allow_html=True)
                             st.markdown("<br/>", unsafe_allow_html=True)
+                            
+                    # Show best record from DB
+                    best_record = get_best_match_record(json.dumps(friends_db))
+                    if best_record:
+                        m_n, f_n, b_s = best_record
+                        st.info(f"🏆 **현재까지 지인분들 중 최고 궁합은 '{m_n}'님과 '{f_n}'님으로 {b_s}점 입니다! (기록을 깨보세요!)**")
 
 # ==========================================
 # TAB 1-2: 커플 궁합 매치 (Couple Match)
@@ -892,6 +951,13 @@ with tab_match_couple:
                 </div>
                 ''', unsafe_allow_html=True)
                 
+                # Show best record from DB
+                friends_db = load_friends_db()
+                best_record = get_best_match_record(json.dumps(friends_db))
+                if best_record:
+                    m_n, f_n, b_s = best_record
+                    st.info(f"🏆 **현재까지 지인분들 중 최고 궁합은 '{m_n}'님과 '{f_n}'님으로 {b_s}점 입니다! (기록을 깨보세요!)**")
+                
             except Exception as e:
                 st.error(f"궁합 분석 중 오류가 발생했습니다: {e}")
 
@@ -911,13 +977,24 @@ if is_maker:
             for idx, friend in enumerate(friends_db):
                 try:
                     f_birth = datetime.datetime.strptime(friend['birth_date'], "%Y-%m-%d").date()
+                    
+                    # 달력 타입 변환 로직 (기본은 양력, 있으면 음력 -> 양력 변환)
+                    f_calendar = friend.get('calendar', '양력')
+                    f_solar_date = get_solar_date(f_birth, f_calendar)
+
                     f_time = friend.get('birth_time')
                     if f_time:
-                        f_h, f_m = map(int, f_time.split(':'))
+                        try:
+                            if ":" in f_time:
+                                f_h, f_m = map(int, f_time.split(':'))
+                            else:
+                                f_h, f_m = get_hour_min_from_branch(f_time)
+                        except Exception:
+                            f_h, f_m = None, 0
                     else:
                         f_h, f_m = None, 0
                         
-                    f_saju = saju_engine.analyze_saju(f_birth.year, f_birth.month, f_birth.day, f_h, f_m)
+                    f_saju = saju_engine.analyze_saju(f_solar_date.year, f_solar_date.month, f_solar_date.day, f_h, f_m)
                     
                     day_pillar_str = f"{f_saju['day_stem_kr']}{f_saju['day_branch_kr']} ({f_saju['day_stem']}{f_saju['day_branch']})"
                     animal = f_saju['pillars']['day']['branch_animal']
@@ -926,8 +1003,10 @@ if is_maker:
                     table_data.append({
                         "번호": idx + 1,
                         "이름": friend['이름'],
+                        "핸드폰": friend.get('phone', '-'),
                         "성별": friend['성별'],
                         "생년월일": friend['birth_date'],
+                        "달력": f_calendar,
                         "시간": friend.get('birth_time') or '모름',
                         "태어난 일주": day_pillar_str,
                         "오행 및 동물": f"{animal} ({element})",
@@ -937,8 +1016,10 @@ if is_maker:
                     table_data.append({
                         "번호": idx + 1,
                         "이름": friend['이름'] + " (에러)",
-                        "성별": friend['성별'],
-                        "생년월일": friend['birth_date'],
+                        "핸드폰": friend.get('phone', '-'),
+                        "성별": friend.get('성별', '-'),
+                        "생년월일": friend.get('birth_date', '-'),
+                        "달력": friend.get('calendar', '-'),
                         "시간": friend.get('birth_time') or '모름',
                         "태어난 일주": f"에러: {e}",
                         "오행 및 동물": "-",
