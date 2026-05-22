@@ -516,7 +516,7 @@ with st.sidebar:
     st.write("---")
     st.markdown("#### 🔒 제작자 관리 모드")
     dev_passcode = st.text_input("인증번호 입력", type="password", help="제작자만 사용하는 관리용 인증번호입니다.")
-    is_maker = (dev_passcode == "9180")
+    is_maker = (dev_passcode == "91419180")
 
 # Main Title and Page Layout
 st.markdown("<h1>🔮 재미로 보는 솔로 사주 궁합 매칭</h1>", unsafe_allow_html=True)
