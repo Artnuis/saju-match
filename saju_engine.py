@@ -1,0 +1,434 @@
+# -*- coding: utf-8 -*-
+"""
+Saju Computation and Compatibility Engine
+Calculates Saju Pillars using sajupy, extracts Five Elements (오행),
+and evaluates compatibility based on traditional Saju principles.
+"""
+
+from typing import Dict, Any, Optional, List
+from sajupy import SajuCalculator
+
+# 10 Heavenly Stems (천간) Info
+STEMS_INFO = {
+    '甲': {'kr': '갑', 'element': '목', 'yinyang': '+', 'desc': '당당하고 뻗어나가는 나무의 기운'},
+    '乙': {'kr': '을', 'element': '목', 'yinyang': '-', 'desc': '유연하고 생명력 있는 화초의 기운'},
+    '丙': {'kr': '병', 'element': '화', 'yinyang': '+', 'desc': '세상을 밝게 비추는 태양의 기운'},
+    '丁': {'kr': '정', 'element': '화', 'yinyang': '-', 'desc': '따뜻하고 부드러운 모닥불/촛불의 기운'},
+    '戊': {'kr': '무', 'element': '토', 'yinyang': '+', 'desc': '넓고 든든한 태산의 기운'},
+    '己': {'kr': '기', 'element': '토', 'yinyang': '-', 'desc': '비옥하고 자애로운 대지의 기운'},
+    '庚': {'kr': '경', 'element': '금', 'yinyang': '+', 'desc': '강인하고 결단력 있는 바위/원석의 기운'},
+    '辛': {'kr': '신', 'element': '금', 'yinyang': '-', 'desc': '섬세하고 아름다운 보석/칼의 기운'},
+    '壬': {'kr': '임', 'element': '수', 'yinyang': '+', 'desc': '넓고 깊은 바다/강물의 기운'},
+    '癸': {'kr': '계', 'element': '수', 'yinyang': '-', 'desc': '만물을 적셔주는 부드러운 빗물의 기운'},
+}
+
+# 12 Earthly Branches (지지) Info
+BRANCHES_INFO = {
+    '子': {'kr': '자', 'element': '수', 'yinyang': '-', 'temp': 'cold', 'animal': '쥐'},
+    '丑': {'kr': '축', 'element': '토', 'yinyang': '-', 'temp': 'cold', 'animal': '소'},
+    '寅': {'kr': '인', 'element': '목', 'yinyang': '+', 'temp': 'warm', 'animal': '호랑이'},
+    '卯': {'kr': '묘', 'element': '목', 'yinyang': '-', 'temp': 'warm', 'animal': '토끼'},
+    '辰': {'kr': '진', 'element': '토', 'yinyang': '+', 'temp': 'wet', 'animal': '용'},
+    '巳': {'kr': '사', 'element': '화', 'yinyang': '+', 'temp': 'hot', 'animal': '뱀'},
+    '午': {'kr': '오', 'element': '화', 'yinyang': '-', 'temp': 'hot', 'animal': '말'},
+    '未': {'kr': '미', 'element': '토', 'yinyang': '-', 'temp': 'hot', 'animal': '양'},
+    '申': {'kr': '신', 'element': '금', 'yinyang': '+', 'temp': 'cool', 'animal': '원숭이'},
+    '酉': {'kr': '유', 'element': '금', 'yinyang': '-', 'temp': 'cool', 'animal': '닭'},
+    '戌': {'kr': '술', 'element': '토', 'yinyang': '+', 'temp': 'hot', 'animal': '개'},
+    '亥': {'kr': '해', 'element': '수', 'yinyang': '+', 'temp': 'cold', 'animal': '돼지'},
+}
+
+# Element colors for UI display (mystic/premium Saju colors)
+ELEMENT_COLORS = {
+    '목': {'bg': '#E8F5E9', 'text': '#2E7D32', 'desc': '목(木) - 청색/초록 (성장, 생명력, 기획)'},
+    '화': {'bg': '#FFEBEE', 'text': '#C62828', 'desc': '화(火) - 적색/빨강 (열정, 표현력, 활기)'},
+    '토': {'bg': '#FFFDE7', 'text': '#F57F17', 'desc': '토(土) - 황색/노랑 (신뢰, 중재, 포용력)'},
+    '금': {'bg': '#FAFAFA', 'text': '#424242', 'desc': '금(金) - 백색/흰색 (결단, 냉철, 의리)'},
+    '수': {'bg': '#E1F5FE', 'text': '#0277BD', 'desc': '수(水) - 흑색/푸른빛 (지혜, 유연성, 직관)'}
+}
+
+# Stem Harmony (천간합) pairs
+STEM_HARMONY = {
+    ('甲', '己'): '갑기합(甲己合) - 토(土)로 변화하는 부부의 지조 있는 결합',
+    ('乙', '庚'): '을경합(乙庚合) - 금(金)으로 변화하는 도덕과 의리의 결합',
+    ('丙', '辛'): '병신합(丙辛合) - 수(水)로 변화하는 애정과 권위의 결합',
+    ('丁', '壬'): '정임합(丁壬合) - 목(木)으로 변화하는 다정다감하고 예술적인 결합',
+    ('戊', '癸'): '무계합(戊癸合) - 화(火)로 변화하는 화려하고 지혜로운 결합',
+}
+
+# Stem Clashes (천간충) pairs
+STEM_CLASH = {
+    ('甲', '庚'), ('乙', '辛'), ('丙', '壬'), ('丁', '癸')
+}
+
+# Branch Six Combinations (지지육합)
+BRANCH_SIX_HARMONY = {
+    ('子', '丑'): '자축합(子丑合) - 현실적 협력과 굳건한 약속',
+    ('寅', '亥'): '인해합(寅亥合) - 생명력을 키워가는 따뜻한 결합',
+    ('卯', '戌'): '묘술합(卯戌合) - 봄과 가을의 서정적인 조화',
+    ('辰', '酉'): '진유합(辰酉合) - 실리와 완벽을 추구하는 궁합',
+    ('巳', '申'): '사신합(巳申合) - 열정과 냉정이 공존하는 역동적 합',
+    ('午', '未'): '오미합(午未合) - 태양과 대지의 뜨거운 일치',
+}
+
+# Branch Three Combinations (지지삼합) groups
+BRANCH_THREE_HARMONY = [
+    ({'申', '子', '辰'}, '신자진 삼합(수 기운) - 흘러가는 물처럼 깊은 지혜와 포용력 공유'),
+    ({'亥', '卯', '未'}, '해묘미 삼합(목 기운) - 푸른 나무처럼 함께 성장하고 발전하는 관계'),
+    ({'寅', '午', '戌'}, '인오술 삼합(화 기운) - 뜨거운 불꽃처럼 세상을 밝히는 열정적 동반자'),
+    ({'巳', '酉', '丑'}, '사유축 삼합(금 기운) - 단단한 금속처럼 변치 않는 강한 의리와 약속'),
+]
+
+# Branch Wonjin (원진살 - minor clash/tension)
+BRANCH_WONJIN = {
+    ('子', '未'), ('丑', '午'), ('寅', '酉'), ('卯', '申'), ('辰', '亥'), ('巳', '戌')
+}
+
+# Branch Clashes (지지충)
+BRANCH_CLASH = {
+    ('子', '午'), ('丑', '未'), ('寅', '申'), ('卯', '酉'), ('辰', '戌'), ('巳', '亥')
+}
+
+# Five Elements Generation (상생)
+GENERATION = {
+    '목': '화', # 목생화
+    '화': '토', # 화생토
+    '토': '금', # 토생금
+    '금': '수', # 금생수
+    '수': '목', # 수생목
+}
+
+# Five Elements Overcoming (상극)
+OVERCOMING = {
+    '목': '토', # 목극토
+    '토': '수', # 토극수
+    '수': '화', # 수극화
+    '화': '금', # 화극금
+    '금': '목', # 금극목
+}
+
+def analyze_saju(year: int, month: int, day: int, hour: Optional[int] = None, minute: int = 0) -> Dict[str, Any]:
+    """
+    Calculates Saju pillars using sajupy and analyzes element balances.
+    If hour is None, uses 12:00 as a placeholder but sets has_hour=False to ignore hour pillar.
+    """
+    calculator = SajuCalculator()
+    has_hour = hour is not None
+    calc_hour = hour if has_hour else 12
+    
+    # Calculate saju
+    saju_res = calculator.calculate_saju(
+        year=year,
+        month=month,
+        day=day,
+        hour=calc_hour,
+        minute=minute,
+        use_solar_time=False
+    )
+    
+    # Process Pillars
+    pillars = {}
+    
+    # Helper to parse stem & branch info
+    def parse_part(stem_hanja: str, branch_hanja: str):
+        stem_info = STEMS_INFO.get(stem_hanja, {'kr': '?', 'element': '?', 'yinyang': '?'})
+        branch_info = BRANCHES_INFO.get(branch_hanja, {'kr': '?', 'element': '?', 'yinyang': '?', 'temp': 'balanced', 'animal': '?'})
+        return {
+            'stem_hanja': stem_hanja,
+            'stem_kr': stem_info['kr'],
+            'stem_element': stem_info['element'],
+            'stem_yinyang': stem_info['yinyang'],
+            'stem_desc': stem_info.get('desc', ''),
+            'branch_hanja': branch_hanja,
+            'branch_kr': branch_info['kr'],
+            'branch_element': branch_info['element'],
+            'branch_yinyang': branch_info['yinyang'],
+            'branch_temp': branch_info.get('temp', 'balanced'),
+            'branch_animal': branch_info.get('animal', ''),
+            'pillar_hanja': stem_hanja + branch_hanja,
+            'pillar_kr': stem_info['kr'] + branch_info['kr']
+        }
+        
+    pillars['year'] = parse_part(saju_res['year_stem'], saju_res['year_branch'])
+    pillars['month'] = parse_part(saju_res['month_stem'], saju_res['month_branch'])
+    pillars['day'] = parse_part(saju_res['day_stem'], saju_res['day_branch'])
+    
+    if has_hour:
+        pillars['hour'] = parse_part(saju_res['hour_stem'], saju_res['hour_branch'])
+    else:
+        pillars['hour'] = None
+
+    # Count Five Elements (오행 개수 계산)
+    element_counts = {'목': 0, '화': 0, '토': 0, '금': 0, '수': 0}
+    total_chars = 0
+    
+    # We examine Year, Month, Day, and optionally Hour
+    active_pillars = ['year', 'month', 'day']
+    if has_hour:
+        active_pillars.append('hour')
+        
+    for p_name in active_pillars:
+        p = pillars[p_name]
+        # Stem element
+        se = p['stem_element']
+        if se in element_counts:
+            element_counts[se] += 1
+            total_chars += 1
+        # Branch element
+        be = p['branch_element']
+        if be in element_counts:
+            element_counts[be] += 1
+            total_chars += 1
+            
+    # Calculate percentages
+    element_pct = {k: round((v / total_chars) * 100, 1) for k, v in element_counts.items()}
+    
+    # Identify Dominant (과다) and Deficient/Lacking (결핍) Elements
+    # Lacking: count is 0. If multiple are 0, we list all. If none is 0, list the minimum.
+    lacking_elements = [k for k, v in element_counts.items() if v == 0]
+    if not lacking_elements:
+        min_val = min(element_counts.values())
+        lacking_elements = [k for k, v in element_counts.items() if v == min_val]
+        
+    # Dominant: highest count
+    max_val = max(element_counts.values())
+    dominant_elements = [k for k, v in element_counts.items() if v == max_val]
+
+    # Calculate Temperature Index (조후 점수)
+    # Hot elements/branches add +1, Cold elements/branches add -1
+    temp_score = 0
+    for p_name in active_pillars:
+        p = pillars[p_name]
+        # Stem Temp estimation
+        if p['stem_element'] == '화':
+            temp_score += 1
+        elif p['stem_element'] == '수':
+            temp_score -= 1
+            
+        # Branch Temp estimation
+        bt = p['branch_temp']
+        if bt == 'hot':
+            temp_score += 1
+        elif bt == 'cold':
+            temp_score -= 1
+            
+    # Normalize temp rating
+    if temp_score > 1:
+        temp_name = 'hot'
+        temp_kr = '따뜻하고 조열함 (Hot/Warm)'
+    elif temp_score < -1:
+        temp_name = 'cold'
+        temp_kr = '차갑고 한랭함 (Cold/Cool)'
+    else:
+        temp_name = 'balanced'
+        temp_kr = '온화하고 조화로움 (Neutral)'
+
+    return {
+        'pillars': pillars,
+        'has_hour': has_hour,
+        'day_stem': pillars['day']['stem_hanja'],
+        'day_stem_kr': pillars['day']['stem_kr'],
+        'day_stem_element': pillars['day']['stem_element'],
+        'day_branch': pillars['day']['branch_hanja'],
+        'day_branch_kr': pillars['day']['branch_kr'],
+        'element_counts': element_counts,
+        'element_percentages': element_pct,
+        'lacking_elements': lacking_elements,
+        'dominant_elements': dominant_elements,
+        'temp_score': temp_score,
+        'temp_kr': temp_kr,
+        'temp_name': temp_name,
+        'birth_date': f"{year}-{month:02d}-{day:02d}",
+        'birth_time': f"{hour:02d}:{minute:02d}" if has_hour else "모름"
+    }
+
+def normalize_pair(a: str, b: str) -> tuple:
+    """Returns sorted tuple to easily match combinations"""
+    return (a, b) if a < b else (b, a)
+
+def get_compatibility(user: Dict[str, Any], friend: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Computes Saju compatibility scores and details between user and friend.
+    Returns scores out of 100 and explanatory texts.
+    """
+    stem_a = user['day_stem']
+    stem_b = friend['day_stem']
+    stem_a_kr = user['day_stem_kr']
+    stem_b_kr = friend['day_stem_kr']
+    el_a = user['day_stem_element']
+    el_b = friend['day_stem_element']
+    
+    branch_a = user['day_branch']
+    branch_b = friend['day_branch']
+    branch_a_kr = user['day_branch_kr']
+    branch_b_kr = friend['day_branch_kr']
+    
+    # ---------------------------------------------
+    # 1. Daily Stem Harmony (일간 합/생극) - Max 30
+    # ---------------------------------------------
+    stem_score = 15
+    stem_desc = ""
+    stem_pair = normalize_pair(stem_a, stem_b)
+    
+    # Check Heavenly Stem Harmony (천간합)
+    if stem_pair in STEM_HARMONY:
+        stem_score = 30
+        stem_desc = f"✨ **천생연분 일간합**: {STEM_HARMONY[stem_pair]}. 두 분은 정신적으로 깊이 교감하며 자석처럼 서로에게 강력하게 끌립니다."
+    # Check same elements with opposite Yin-Yang
+    elif el_a == el_b and user['pillars']['day']['stem_yinyang'] != friend['pillars']['day']['stem_yinyang']:
+        stem_score = 25
+        stem_desc = "🤝 **조화로운 비겁합**: 서로 같은 성질의 오행이지만 음양이 다른 관계입니다. 서로를 거울 삼아 마음 깊이 이해하며, 평생의 소울메이트처럼 편안합니다."
+    # Check Generation (상생)
+    elif GENERATION.get(el_a) == el_b or GENERATION.get(el_b) == el_a:
+        stem_score = 22
+        sender = stem_a_kr if GENERATION.get(el_a) == el_b else stem_b_kr
+        receiver = stem_b_kr if GENERATION.get(el_a) == el_b else stem_a_kr
+        stem_score = 22
+        stem_desc = f"🌱 **따스한 상생(相生) 관계**: {sender}의 오행 기운이 {receiver}을 헌신적으로 지원해 주는 상생 구조입니다. 서로 성장할 수 있도록 격려하는 훌륭한 파트너가 됩니다."
+    # Check Clash (천간충)
+    elif stem_pair in STEM_CLASH:
+        stem_score = 12
+        stem_desc = f"⚡ **스파크 천간충**: {stem_a_kr}과 {stem_b_kr}은 서로 정면으로 부딪히는 기운을 가지고 있습니다. 때론 강렬한 매력을 느끼지만 가치관의 대립이 있을 수 있어 배려와 조율이 중요합니다."
+    # Check Overcoming (상극)
+    elif OVERCOMING.get(el_a) == el_b or OVERCOMING.get(el_b) == el_a:
+        stem_score = 14
+        controller = stem_a_kr if OVERCOMING.get(el_a) == el_b else stem_b_kr
+        controlled = stem_b_kr if OVERCOMING.get(el_a) == el_b else stem_a_kr
+        stem_desc = f"⚠️ **긴장감 있는 상극(相剋) 관계**: {controller}의 기운이 {controlled}을 극(剋)하는 관계입니다. 적당한 거리감과 조심스러운 태도가 특별한 매력이 되기도 합니다."
+    else:
+        # Same Element, Same Yin-Yang (비견)
+        if el_a == el_b:
+            stem_score = 18
+            stem_desc = f"👥 **동성 동질 비견**: 둘 다 '{el_a}' 기운을 가졌습니다. 생각이 비슷해서 쉽게 친해지지만 서로 고집을 피우면 부딪히는 성향이 있습니다."
+        else:
+            stem_score = 16
+            stem_desc = "평범하고 원만한 정신적 교류를 나눌 수 있는 편안한 사이입니다."
+
+    # ---------------------------------------------
+    # 2. Deficiency Complement (결핍 오행 보완) - Max 35
+    # ---------------------------------------------
+    def_score = 5
+    def_reasons = []
+    
+    # Check user deficiencies vs friend abundances
+    user_lacks = user['lacking_elements']
+    friend_lacks = friend['lacking_elements']
+    user_doms = user['dominant_elements']
+    friend_doms = friend['dominant_elements']
+    
+    # Friend has User's lacking element in abundance or as daily stem element
+    for lack in user_lacks:
+        if lack in friend_doms:
+            def_score += 15
+            def_reasons.append(f"내게 부족한 **{lack}** 기운을 상대방이 넉넉히 가지고 있습니다")
+        elif lack == el_b:
+            def_score += 10
+            def_reasons.append(f"내게 결핍된 **{lack}** 기운이 상대방의 본성(일간)입니다")
+            
+    # User has Friend's lacking element in abundance or as daily stem element
+    for lack in friend_lacks:
+        if lack in user_doms:
+            def_score += 10
+            def_reasons.append(f"상대에게 부족한 **{lack}** 기운을 내가 채워줄 수 있습니다")
+        elif lack == el_a:
+            def_score += 5
+            def_reasons.append(f"상대에게 부족한 **{lack}** 기운이 나의 본성(일간)입니다")
+            
+    # Cap at 35, minimum 5
+    def_score = min(def_score, 35)
+    
+    if def_reasons:
+        def_desc = "🧩 **오행 보완**: " + ", ".join(def_reasons[:2]) + ". 사주의 불균형을 서로 완벽하게 메꿔주어 만날수록 마음이 편안해집니다."
+    else:
+        def_desc = "🪵 **오행 중립**: 두 분의 오행 구조가 서로 보완 작용을 일으키지는 않지만 무난하고 잔잔하게 섞이는 배치입니다."
+
+    # ---------------------------------------------
+    # 3. Daily Branch Harmony (일지 합/충) - Max 20
+    # ---------------------------------------------
+    branch_score = 12
+    branch_desc = ""
+    branch_pair = normalize_pair(branch_a, branch_b)
+    
+    # Six Combinations (육합)
+    if branch_pair in BRANCH_SIX_HARMONY:
+        branch_score = 20
+        branch_desc = f"❤️ **속궁합 육합(六合)**: {BRANCH_SIX_HARMONY[branch_pair]}. 일상적인 성향과 육체적 조화(속궁합)가 가장 뛰어난 찰떡 관계입니다."
+    else:
+        # Check Three Combinations (삼합)
+        samhap_found = False
+        for samhap_set, samhap_text in BRANCH_THREE_HARMONY:
+            if branch_a in samhap_set and branch_b in samhap_set:
+                branch_score = 18
+                branch_desc = f"🏆 **든든한 삼합(三合)**: {samhap_text}. 현실적인 지향점이 같아 동반자로서 최고의 조력자가 됩니다."
+                samhap_found = True
+                break
+                
+        if not samhap_found:
+            # Check Clashes (지지충)
+            if branch_pair in BRANCH_CLASH:
+                branch_score = 6
+                branch_desc = f"💥 **일지 지지충**: {branch_a_kr}과 {branch_b_kr}은 부딪히는 기운입니다. 사소한 습관이나 현실적 문제로 갈등이 생기기 쉬우나, 이를 극복하면 더 단단해집니다."
+            # Check Wonjin (원진)
+            elif branch_pair in BRANCH_WONJIN:
+                branch_score = 5
+                branch_desc = f"🕸️ **애증의 원진살**: {branch_a_kr}과 {branch_b_kr} 사이에는 애틋하면서도 미운 감정이 공존합니다. 묘한 끌림과 집착을 일으키기도 하는 로맨틱 스릴러 같은 궁합입니다."
+            else:
+                branch_score = 12
+                branch_desc = "🏡 **안정적인 관계**: 일상과 가정을 꾸려가는 태도가 조화롭고 평온하여 부딪힘 없이 오랫동안 동반할 수 있는 사이입니다."
+
+    # ---------------------------------------------
+    # 4. Temperature Balance (조후 균형) - Max 15
+    # ---------------------------------------------
+    temp_score = 10
+    temp_desc = ""
+    
+    ut = user['temp_name']
+    ft = friend['temp_name']
+    
+    if (ut == 'hot' and ft == 'cold') or (ut == 'cold' and ft == 'hot'):
+        temp_score = 15
+        temp_desc = "🌡️ **조후 조화**: 뜨거운 에너지와 차가운 에너지가 만나 서로의 과열되거나 한랭한 상태를 녹이고 식혀줍니다. 서로에게 휴식처 같은 포근함을 줍니다."
+    elif ut == ft and ut in ['hot', 'cold']:
+        temp_score = 5
+        temp_desc = f"🔥 **동일 온도**: 두 분 모두 {ut == 'hot' and '뜨거운' or '차가운'} 조후를 지니고 있어 한쪽 감정이나 상태로 쏠릴 수 있습니다. 서로 의식적으로 환기해 주는 노력이 유익합니다."
+    else:
+        temp_score = 10
+        temp_desc = "🍃 **무난한 조후**: 온도가 적절하거나 균형이 맞아 과하거나 모자람 없이 상쾌하고 부드러운 분위기를 조성합니다."
+
+    # Final Summary Score
+    total_score = stem_score + def_score + branch_score + temp_score
+    
+    # Map score to descriptions
+    if total_score >= 90:
+        grade = "💖 천생연분 (Perfect Match)"
+        grade_desc = "우주가 점지해 준 최고의 인연입니다! 서로를 채워주는 오행과 깊은 정신적 유대감이 결합하여 만나기 힘든 평생의 짝꿍입니다."
+    elif total_score >= 80:
+        grade = "🌟 찰떡궁합 (Excellent Match)"
+        grade_desc = "성격과 라이프스타일 모두 조화로운 인연입니다. 큰 문제없이 서로를 존중하며 예쁜 사랑을 가꾸어 나갈 수 있습니다."
+    elif total_score >= 70:
+        grade = "☘️ 무난하고 좋은 궁합 (Good Match)"
+        grade_desc = "서로 이해하고 존중하면 연인으로서 충분히 매력적인 관계입니다. 가끔 맞춰가야 할 부분이 있지만 대화로 쉽게 풀립니다."
+    elif total_score >= 60:
+        grade = "⚡ 매력적인 긴장 궁합 (Spicy Match)"
+        grade_desc = "서로 성향이 아주 달라 첫눈에 깊이 끌렸을 가능성이 높습니다! 삐끗할 수 있는 부분만 미리 이해하고 배려한다면 색다르고 자극적인 재미가 가득합니다."
+    else:
+        grade = "🌧️ 조심스런 노력 궁합 (Challenging Match)"
+        grade_desc = "서로를 위해 더 많은 이해와 인내가 요구되는 연애입니다. 상대방의 고유한 성향을 바꾸려 하지 않고 그대로 존중할 때 비로소 평온해집니다."
+
+    return {
+        'total_score': total_score,
+        'grade': grade,
+        'grade_desc': grade_desc,
+        'breakdown': {
+            'stem_score': stem_score,
+            'def_score': def_score,
+            'branch_score': branch_score,
+            'temp_score': temp_score
+        },
+        'explanations': {
+            'stem_desc': stem_desc,
+            'def_desc': def_desc,
+            'branch_desc': branch_desc,
+            'temp_desc': temp_desc
+        }
+    }
