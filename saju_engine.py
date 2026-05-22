@@ -251,16 +251,16 @@ def analyze_saju(year: int, month: int, day: int, hour: Optional[int] = None, mi
         
     element_power_scores = boosted_power_scores
     
-    # Identify Dominant (과다) and Deficient/Lacking (결핍) Elements
-    # Lacking: count is 0. If multiple are 0, we list all. If none is 0, list the minimum.
-    lacking_elements = [k for k, v in element_counts.items() if v == 0]
+    # Identify Dominant (과다) and Deficient/Lacking (결핍) Elements using Boosted Power Scores
+    # Lacking: power is 0. If none is 0, list the minimum power.
+    lacking_elements = [k for k, v in boosted_power_scores.items() if v == 0.0]
     if not lacking_elements:
-        min_val = min(element_counts.values())
-        lacking_elements = [k for k, v in element_counts.items() if v == min_val]
+        min_val = min(boosted_power_scores.values())
+        lacking_elements = [k for k, v in boosted_power_scores.items() if v == min_val]
         
-    # Dominant: highest count
-    max_val = max(element_counts.values())
-    dominant_elements = [k for k, v in element_counts.items() if v == max_val]
+    # Dominant: highest power
+    max_val = max(boosted_power_scores.values())
+    dominant_elements = [k for k, v in boosted_power_scores.items() if v == max_val]
 
     # Calculate Temperature Index (조후 점수)
     # Hot elements/branches add +1, Cold elements/branches add -1
