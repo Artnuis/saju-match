@@ -396,29 +396,11 @@ else:
 # TAB 1: 솔로 궁합 매칭 (Match Finder)
 # ==========================================
 with tab_match_solo:
-    st.markdown("<h3 style='margin-top: 10px;'>내 정보 입력하기</h3>", unsafe_allow_html=True)
-    
-    # Load user profiles
-    users_db = load_users_db()
-    user_names = ["직접 입력하기"] + [u['이름'] for u in users_db]
-    
-    col_prof_select, col_prof_del = st.columns([3, 1])
-    with col_prof_select:
-        selected_user = st.selectbox("👤 이전 프로필 불러오기 (클릭 후 타이핑하여 검색)", user_names)
-    with col_prof_del:
-        if selected_user != "직접 입력하기":
-            st.write("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-            if st.button("🗑️ 프로필 삭제", key="del_profile_btn"):
-                users_db = [u for u in users_db if u['이름'] != selected_user]
-                save_users_db(users_db)
-                st.success("🗑️ 프로필이 삭제되었습니다.")
-                st.rerun()
-        else:
-            st.write("")
-    
     # Session state initialization
     if 'u_name' not in st.session_state:
         st.session_state.u_name = ""
+    if 'u_phone' not in st.session_state:
+        st.session_state.u_phone = ""
     if 'u_gender' not in st.session_state:
         st.session_state.u_gender = "여자"
     if 'u_pref' not in st.session_state:
@@ -433,36 +415,89 @@ with tab_match_solo:
         st.session_state.u_hour_12 = 12
     if 'u_minute' not in st.session_state:
         st.session_state.u_minute = 0
-
-    # If profile is selected, override session state values
-    if selected_user != "직접 입력하기":
-        u_profile = next((u for u in users_db if u['이름'] == selected_user), None)
-        if u_profile:
-            st.session_state.u_name = u_profile['이름']
-            st.session_state.u_gender = u_profile['성별']
-            st.session_state.u_pref = u_profile.get('pref', '모든 성별')
-            st.session_state.u_birth = datetime.datetime.strptime(u_profile['birth_date'], "%Y-%m-%d").date()
-            st.session_state.u_has_time = u_profile.get('has_time', False)
-            if st.session_state.u_has_time and u_profile.get('birth_time'):
-                h24, m = map(int, u_profile['birth_time'].split(':'))
-                st.session_state.u_minute = m
-                if h24 == 0:
-                    st.session_state.u_ampm = "오전 (AM)"
-                    st.session_state.u_hour_12 = 12
-                elif h24 < 12:
-                    st.session_state.u_ampm = "오전 (AM)"
-                    st.session_state.u_hour_12 = h24
-                elif h24 == 12:
-                    st.session_state.u_ampm = "오후 (PM)"
-                    st.session_state.u_hour_12 = 12
-                else:
-                    st.session_state.u_ampm = "오후 (PM)"
-                    st.session_state.u_hour_12 = h24 - 12
+    if 'search_results' not in st.session_state:
+        st.session_state.search_results = []
+        
+    st.markdown("<h3 style='margin-top: 10px;'>🔍 이전 프로필 불러오기</h3>", unsafe_allow_html=True)
     
+    users_db = load_users_db()
+    
+    col_search_input, col_search_btn = st.columns([3, 1])
+    with col_search_input:
+        search_phone = st.text_input("핸드폰 뒷자리 4자리를 입력하세요 (번호를 등록했던 사용자만 검색 가능)", max_chars=4, placeholder="예: 1234")
+    with col_search_btn:
+        st.write("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+        do_search = st.button("🔍 프로필 검색")
+        
+    if do_search:
+        if not search_phone.strip():
+            st.warning("⚠️ 핸드폰 뒷자리를 입력해주세요.")
+            st.session_state.search_results = []
+        else:
+            matches = [u for u in users_db if u.get('phone') == search_phone.strip()]
+            if not matches:
+                st.warning("⚠️ 일치하는 프로필이 없습니다.")
+                st.session_state.search_results = []
+            else:
+                st.session_state.search_results = matches
+                st.success(f"{len(matches)}명의 프로필을 찾았습니다! 아래에서 선택해주세요.")
+                
+    selected_user = None
+    if st.session_state.search_results:
+        if len(st.session_state.search_results) == 1:
+            selected_user = st.session_state.search_results[0]
+            st.info(f"✅ **{selected_user['이름']}**님의 프로필이 확인되었습니다.")
+        else:
+            names = [u['이름'] for u in st.session_state.search_results]
+            sel_name = st.selectbox("동일한 번호가 있습니다. 본인의 닉네임을 선택해 주세요.", ["선택하세요"] + names)
+            if sel_name != "선택하세요":
+                selected_user = next(u for u in st.session_state.search_results if u['이름'] == sel_name)
+                
+    if selected_user:
+        col_load, col_del = st.columns([1, 1])
+        with col_load:
+            if st.button("⬇️ 이 프로필 정보로 아래 입력창 채우기"):
+                st.session_state.u_name = selected_user['이름']
+                st.session_state.u_phone = selected_user.get('phone', '')
+                st.session_state.u_gender = selected_user['성별']
+                st.session_state.u_pref = selected_user.get('pref', '모든 성별')
+                st.session_state.u_birth = datetime.datetime.strptime(selected_user['birth_date'], "%Y-%m-%d").date()
+                st.session_state.u_has_time = selected_user.get('has_time', False)
+                if selected_user.get('has_time') and selected_user.get('birth_time'):
+                    h24, m = map(int, selected_user['birth_time'].split(':'))
+                    st.session_state.u_minute = m
+                    if h24 == 0:
+                        st.session_state.u_ampm = "오전 (AM)"
+                        st.session_state.u_hour_12 = 12
+                    elif h24 < 12:
+                        st.session_state.u_ampm = "오전 (AM)"
+                        st.session_state.u_hour_12 = h24
+                    elif h24 == 12:
+                        st.session_state.u_ampm = "오후 (PM)"
+                        st.session_state.u_hour_12 = 12
+                    else:
+                        st.session_state.u_ampm = "오후 (PM)"
+                        st.session_state.u_hour_12 = h24 - 12
+                st.rerun()
+                
+        with col_del:
+            if st.button("🗑️ 프로필 영구 삭제하기"):
+                users_db = [u for u in users_db if u['이름'] != selected_user['이름']]
+                save_users_db(users_db)
+                friends_db = load_friends_db()
+                friends_db = [f for f in friends_db if f['이름'] != selected_user['이름']]
+                save_friends_db(friends_db)
+                st.session_state.search_results = []
+                st.success("🗑️ 프로필이 완전히 삭제되었습니다.")
+                st.rerun()
+
+    st.markdown("<hr/>", unsafe_allow_html=True)
+    st.markdown("<h3 style='margin-top: 10px;'>내 정보 입력하기</h3>", unsafe_allow_html=True)
     col_input1, col_input2 = st.columns(2)
     
     with col_input1:
         u_name = st.text_input("이름 또는 닉네임", key="u_name", placeholder="예: 길동이")
+        u_phone = st.text_input("핸드폰 뒷자리 (나중에 불러오기용)", max_chars=4, key="u_phone", placeholder="예: 1234")
         u_gender = st.selectbox("나의 성별", ["여자", "남자"], key="u_gender")
         u_pref = st.selectbox("어떤 상대와 매칭할까요?", ["모든 성별", "남자만", "여자만"], key="u_pref")
         
@@ -509,6 +544,7 @@ with tab_match_solo:
                 
                 new_user = {
                     "이름": u_name.strip(),
+                    "phone": u_phone.strip(),
                     "성별": u_gender,
                     "pref": u_pref,
                     "birth_date": u_birth.strftime("%Y-%m-%d"),
@@ -558,6 +594,7 @@ with tab_match_solo:
                 birth_time_str = f"{u_hour:02d}:{u_minute:02d}" if u_has_time else None
                 new_user = {
                     "이름": u_name.strip(),
+                    "phone": u_phone.strip(),
                     "성별": u_gender,
                     "pref": u_pref,
                     "birth_date": u_birth.strftime("%Y-%m-%d"),
