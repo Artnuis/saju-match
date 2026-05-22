@@ -830,7 +830,10 @@ with tab_match_solo:
                         f_time_str = friend.get('birth_time')
                         if f_time_str:
                             try:
-                                if ":" in f_time_str:
+                                # "자(子)시 (23:30 ~ 01:29)" 형태에도 콜론이 포함되어 있으므로 구분 필요
+                                if "시 (" in f_time_str or "시(" in f_time_str:
+                                    f_h, f_m = get_hour_min_from_branch(f_time_str)
+                                elif ":" in f_time_str:
                                     f_h, f_m = map(int, f_time_str.split(':'))
                                 else:
                                     f_h, f_m = get_hour_min_from_branch(f_time_str)
