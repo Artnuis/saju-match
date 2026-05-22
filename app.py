@@ -1023,7 +1023,7 @@ with tab_match_couple:
                 saju1 = saju_engine.analyze_saju(solar_c1.year, solar_c1.month, solar_c1.day, c_hour1, c_min1)
                 saju2 = saju_engine.analyze_saju(solar_c2.year, solar_c2.month, solar_c2.day, c_hour2, c_min2)
                 
-                comp = saju_engine.calculate_compatibility(saju1, saju2)
+                comp = saju_engine.get_compatibility(saju1, saju2)
                 st.balloons()
                 st.success("✨ 두 분의 궁합 분석이 완료되었습니다!")
                 
