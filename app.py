@@ -5,7 +5,16 @@ import json
 import os
 import datetime
 from typing import Dict, Any, List, Optional
+from korean_lunar_calendar import KoreanLunarCalendar
 
+def get_solar_date(input_date: datetime.date, calendar_type: str) -> datetime.date:
+    if calendar_type == "양력":
+        return input_date
+    calendar = KoreanLunarCalendar()
+    is_intercalation = (calendar_type == "음력(윤달)")
+    if calendar.setLunarDate(input_date.year, input_date.month, input_date.day, is_intercalation):
+        return datetime.date(calendar.solarYear, calendar.solarMonth, calendar.solarDay)
+    return input_date
 # Set page config first
 st.set_page_config(
     page_title="🔮 재미로 보는 사주 궁합 매칭",
@@ -407,6 +416,8 @@ with tab_match_solo:
         st.session_state.u_pref = "모든 성별"
     if 'u_birth' not in st.session_state:
         st.session_state.u_birth = datetime.date(1995, 1, 1)
+    if 'u_calendar' not in st.session_state:
+        st.session_state.u_calendar = "양력"
     if 'u_has_time' not in st.session_state:
         st.session_state.u_has_time = False
     if 'u_ampm' not in st.session_state:
@@ -462,6 +473,7 @@ with tab_match_solo:
                 st.session_state.u_gender = selected_user['성별']
                 st.session_state.u_pref = selected_user.get('pref', '모든 성별')
                 st.session_state.u_birth = datetime.datetime.strptime(selected_user['birth_date'], "%Y-%m-%d").date()
+                st.session_state.u_calendar = selected_user.get('calendar', '양력')
                 st.session_state.u_has_time = selected_user.get('has_time', False)
                 if selected_user.get('has_time') and selected_user.get('birth_time'):
                     h24, m = map(int, selected_user['birth_time'].split(':'))
@@ -503,11 +515,12 @@ with tab_match_solo:
         
     with col_input2:
         u_birth = st.date_input(
-            "생년월일 선택 (양력)", 
+            "생년월일 선택", 
             key="u_birth",
             min_value=datetime.date(1900, 1, 1),
             max_value=datetime.date(2100, 12, 31)
         )
+        u_calendar = st.radio("달력 종류", ["양력", "음력(평달)", "음력(윤달)"], key="u_calendar", horizontal=True)
         
         u_has_time = st.checkbox("태어난 시간을 아시나요?", key="u_has_time")
         if u_has_time:
@@ -548,6 +561,7 @@ with tab_match_solo:
                     "성별": u_gender,
                     "pref": u_pref,
                     "birth_date": u_birth.strftime("%Y-%m-%d"),
+                    "calendar": u_calendar,
                     "has_time": u_has_time,
                     "birth_time": birth_time_str
                 }
@@ -575,12 +589,15 @@ with tab_match_solo:
         elif not friends_db and not users_db:
             st.warning("⚠️ 매칭할 수 있는 대상이 없습니다.")
         else:
+            # Convert to solar date if lunar
+            solar_date = get_solar_date(u_birth, u_calendar)
+            
             # 1. Analyze User Saju
             try:
                 user_saju = saju_engine.analyze_saju(
-                    year=u_birth.year,
-                    month=u_birth.month,
-                    day=u_birth.day,
+                    year=solar_date.year,
+                    month=solar_date.month,
+                    day=solar_date.day,
                     hour=u_hour,
                     minute=u_minute
                 )
@@ -598,6 +615,7 @@ with tab_match_solo:
                     "성별": u_gender,
                     "pref": u_pref,
                     "birth_date": u_birth.strftime("%Y-%m-%d"),
+                    "calendar": u_calendar,
                     "has_time": u_has_time,
                     "birth_time": birth_time_str
                 }
@@ -799,6 +817,7 @@ with tab_match_couple:
         st.markdown("#### 🧑‍🦰 남성 사주 정보")
         c_name1 = st.text_input("닉네임 (남성)", key="c_name1")
         c_birth1 = st.date_input("생년월일 (남성)", key="c_birth1", min_value=datetime.date(1900, 1, 1), max_value=datetime.date(2100, 12, 31), value=datetime.date(1995, 1, 1))
+        c_calendar1 = st.radio("달력 종류 (남성)", ["양력", "음력(평달)", "음력(윤달)"], key="c_calendar1", horizontal=True)
         c_has_time1 = st.checkbox("태어난 시간을 아시나요? (남성)", key="c_has_time1")
         c_hour1, c_min1 = None, 0
         if c_has_time1:
@@ -813,6 +832,7 @@ with tab_match_couple:
         st.markdown("#### 👩‍🦱 여성 사주 정보")
         c_name2 = st.text_input("닉네임 (여성)", key="c_name2")
         c_birth2 = st.date_input("생년월일 (여성)", key="c_birth2", min_value=datetime.date(1900, 1, 1), max_value=datetime.date(2100, 12, 31), value=datetime.date(1995, 1, 1))
+        c_calendar2 = st.radio("달력 종류 (여성)", ["양력", "음력(평달)", "음력(윤달)"], key="c_calendar2", horizontal=True)
         c_has_time2 = st.checkbox("태어난 시간을 아시나요? (여성)", key="c_has_time2")
         c_hour2, c_min2 = None, 0
         if c_has_time2:
@@ -830,8 +850,11 @@ with tab_match_couple:
             st.warning("⚠️ 두 분의 닉네임을 모두 입력해 주세요!")
         else:
             try:
-                saju1 = saju_engine.analyze_saju(c_birth1.year, c_birth1.month, c_birth1.day, c_hour1, c_min1)
-                saju2 = saju_engine.analyze_saju(c_birth2.year, c_birth2.month, c_birth2.day, c_hour2, c_min2)
+                solar_c1 = get_solar_date(c_birth1, c_calendar1)
+                solar_c2 = get_solar_date(c_birth2, c_calendar2)
+                
+                saju1 = saju_engine.analyze_saju(solar_c1.year, solar_c1.month, solar_c1.day, c_hour1, c_min1)
+                saju2 = saju_engine.analyze_saju(solar_c2.year, solar_c2.month, solar_c2.day, c_hour2, c_min2)
                 
                 comp = saju_engine.calculate_compatibility(saju1, saju2)
                 st.balloons()
