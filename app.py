@@ -18,18 +18,18 @@ def get_solar_date(input_date: datetime.date, calendar_type: str) -> datetime.da
     return input_date
 
 TIME_BRANCHES = [
-    "🐭 자(子)시 (23:30 ~ 01:29)",
-    "🐮 축(丑)시 (01:30 ~ 03:29)",
-    "🐯 인(寅)시 (03:30 ~ 05:29)",
-    "🐰 묘(卯)시 (05:30 ~ 07:29)",
-    "🐲 진(辰)시 (07:30 ~ 09:29)",
-    "🐍 사(巳)시 (09:30 ~ 11:29)",
-    "🐴 오(午)시 (11:30 ~ 13:29)",
-    "🐑 미(未)시 (13:30 ~ 15:29)",
-    "🐵 신(申)시 (15:30 ~ 17:29)",
-    "🐔 유(酉)시 (17:30 ~ 19:29)",
-    "🐶 술(戌)시 (19:30 ~ 21:29)",
-    "🐷 해(亥)시 (21:30 ~ 23:29)"
+    "🐭 자(子)시 (23:00 ~ 00:59)",
+    "🐮 축(丑)시 (01:00 ~ 02:59)",
+    "🐯 인(寅)시 (03:00 ~ 04:59)",
+    "🐰 묘(卯)시 (05:00 ~ 06:59)",
+    "🐲 진(辰)시 (07:00 ~ 08:59)",
+    "🐍 사(巳)시 (09:00 ~ 10:59)",
+    "🐴 오(午)시 (11:00 ~ 12:59)",
+    "🐑 미(未)시 (13:00 ~ 14:59)",
+    "🐵 신(申)시 (15:00 ~ 16:59)",
+    "🐔 유(酉)시 (17:00 ~ 18:59)",
+    "🐶 술(戌)시 (19:00 ~ 20:59)",
+    "🐷 해(亥)시 (21:00 ~ 22:59)"
 ]
 
 def get_hour_min_from_branch(branch_str: str) -> tuple:
@@ -43,10 +43,10 @@ def get_branch_from_time_str(time_str: str) -> str:
     try:
         h, m = map(int, time_str.split(':'))
         total_m = h * 60 + m
-        if total_m >= 23*60+30 or total_m < 1*60+30:
+        if total_m >= 23*60 or total_m < 1*60:
             return TIME_BRANCHES[0]
         for i in range(1, 12):
-            if (2*i - 1)*60 + 30 <= total_m < (2*i + 1)*60 + 30:
+            if (2*i - 1)*60 <= total_m < (2*i + 1)*60:
                 return TIME_BRANCHES[i]
         return TIME_BRANCHES[0]
     except:
@@ -105,43 +105,21 @@ st.set_page_config(
 import importlib
 import saju_engine
 importlib.reload(saju_engine)
-# Database File Path
-DB_PATH = 'friends_db.json'
-USER_DB_PATH = 'users_db.json'
+import gsheet_db
+
+# ─── DB CRUD Functions (Google Sheets 연동 / JSON 폴백) ───
 
 def load_friends_db() -> List[Dict[str, Any]]:
-    if not os.path.exists(DB_PATH):
-        return []
-    try:
-        with open(DB_PATH, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except Exception as e:
-        st.error(f"친구 데이터베이스 로드 중 오류가 발생했습니다: {e}")
-        return []
+    return gsheet_db.load_sheet_as_list('friends')
 
 def save_friends_db(db: List[Dict[str, Any]]):
-    try:
-        with open(DB_PATH, 'w', encoding='utf-8') as f:
-            json.dump(db, f, ensure_ascii=False, indent=4)
-    except Exception as e:
-        st.error(f"친구 데이터베이스 저장 중 오류가 발생했습니다: {e}")
+    gsheet_db.save_list_to_sheet('friends', db)
 
 def load_users_db() -> List[Dict[str, Any]]:
-    if not os.path.exists(USER_DB_PATH):
-        return []
-    try:
-        with open(USER_DB_PATH, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except Exception as e:
-        st.error(f"사용자 데이터베이스 로드 중 오류가 발생했습니다: {e}")
-        return []
+    return gsheet_db.load_sheet_as_list('users')
 
 def save_users_db(db: List[Dict[str, Any]]):
-    try:
-        with open(USER_DB_PATH, 'w', encoding='utf-8') as f:
-            json.dump(db, f, ensure_ascii=False, indent=4)
-    except Exception as e:
-        st.error(f"사용자 데이터베이스 저장 중 오류가 발생했습니다: {e}")
+    gsheet_db.save_list_to_sheet('users', db)
 
 def sync_users_to_friends():
     """users_db의 최신 정보를 friends_db에 덮어씌움 (실시간 연동 보장)"""
@@ -891,8 +869,8 @@ with tab_match_solo:
                             <div style="margin-bottom: 15px; font-weight: 500; line-height: 1.6;">{comp['grade_desc']}</div>
                             <div style="background: rgba(0, 0, 0, 0.2); padding: 12px; border-radius: 8px; border-left: 3px solid #ffeb3b; font-size: 0.9rem;">
                                 <div>🍀 <b>핵심 어울림 포인트:</b></div>
-                                <div style="margin-top: 4px;">• {comp['explanations']['stem_desc']}</div>
-                                <div style="margin-top: 4px;">• {comp['explanations']['def_desc']}</div>
+                                <div style="margin-top: 4px;">• {comp['explanations']['values_desc']}</div>
+                                <div style="margin-top: 4px;">• {comp['explanations']['binding_desc']}</div>
                             </div>
                         </div>
                         """, unsafe_allow_html=True)
@@ -952,26 +930,54 @@ with tab_match_solo:
                             
                             score_breakdown = comp['breakdown']
                             exps = comp['explanations']
+                            detailed_logs = comp['detailed_logs']
                             
                             score_cols = st.columns(4)
                             
                             with score_cols[0]:
-                                st.metric("일간 조화 (정신)", f"{score_breakdown['stem_score']} / 30")
+                                st.metric("가치관 및 소통", f"{score_breakdown['values_score']} / 25")
                             with score_cols[1]:
-                                st.metric("오행 보완 (시너지)", f"{score_breakdown['def_score']} / 35")
+                                st.metric("오행의 상호 보완", f"{score_breakdown['complement_score']} / 25")
                             with score_cols[2]:
-                                st.metric("일지 조화 (속궁합)", f"{score_breakdown['branch_score']} / 20")
+                                st.metric("현실 밀착도(일지)", f"{score_breakdown['binding_score']} / 25")
                             with score_cols[3]:
-                                st.metric("온도 조율 (조후)", f"{score_breakdown['temp_score']} / 15")
+                                st.metric("운의 시너지", f"{score_breakdown['fortune_score']} / 25")
                                 
                             st.markdown(f"""
                             <div style="background: rgba(255, 255, 255, 0.02); padding: 15px; border-radius: 8px; border: 1px solid rgba(186, 104, 200, 0.1); margin-top: 10px;">
-                                <p>🧠 <b>정신적 궁합 (일간):</b> {exps['stem_desc']}</p>
-                                <p>🧩 <b>오행 결핍보완:</b> {exps['def_desc']}</p>
-                                <p>🚪 <b>현실/속궁합 (일지):</b> {exps['branch_desc']}</p>
-                                <p>🌡️ <b>에너지 온도 조화:</b> {exps['temp_desc']}</p>
+                                <p>🧠 <b>가치관 및 소통:</b> {exps['values_desc']}</p>
+                                <p>🧩 <b>오행 시너지:</b> {exps['complement_desc']}</p>
+                                <p>🚪 <b>현실 및 환경 조화:</b> {exps['binding_desc']}</p>
+                                <p>📈 <b>운의 시너지:</b> {exps['fortune_desc']}</p>
                             </div>
                             """, unsafe_allow_html=True)
+                            st.markdown("<br/>", unsafe_allow_html=True)
+                            
+                            # Render Detailed Logs (NEW FEATURE)
+                            st.markdown("##### 📝 왜 이런 점수가 나왔을까요? (상세 획득 점수표)")
+                            
+                            def render_log_table(logs_list):
+                                if not logs_list:
+                                    return "<p style='color: #aaa;'>특이사항 없음</p>"
+                                html = "<table class='friends-table' style='margin-top: 5px; font-size: 0.9rem; margin-bottom: 15px;'>"
+                                html += "<tr><th style='width: 30%;'>평가 항목</th><th style='width: 15%;'>획득 점수</th><th style='width: 55%;'>상세 분석 이유</th></tr>"
+                                for log in logs_list:
+                                    html += f"<tr><td>{log['item']}</td><td><span style='color:#ffeb3b; font-weight: bold;'>{log['score']}점</span></td><td>{log['reason']}</td></tr>"
+                                html += "</table>"
+                                return html
+                                
+                            st.markdown("**1. 가치관 및 소통 (총 25점)**")
+                            st.markdown(render_log_table(detailed_logs['values']), unsafe_allow_html=True)
+                            
+                            st.markdown("**2. 오행의 상호 보완성 (총 25점)**")
+                            st.markdown(render_log_table(detailed_logs['complement']), unsafe_allow_html=True)
+                            
+                            st.markdown("**3. 일간 및 지지 결합도 (총 25점)**")
+                            st.markdown(render_log_table(detailed_logs['binding']), unsafe_allow_html=True)
+                            
+                            st.markdown("**4. 운의 시너지 효과 (총 25점)**")
+                            st.markdown(render_log_table(detailed_logs['fortune']), unsafe_allow_html=True)
+                            
                             st.markdown("<br/>", unsafe_allow_html=True)
                             
                     # Show best record from DB
@@ -1036,28 +1042,52 @@ with tab_match_couple:
                 render_saju_analysis(saju2, c_name2)
                 
                 st.markdown("---")
-                st.markdown(f"### 💖 {c_name1} 님과 {c_name2} 님의 최종 궁합 점수: <span style='color:#ffeb3b; font-size:2rem;'>{comp['score']}점</span>", unsafe_allow_html=True)
+                st.markdown(f"### 💖 {c_name1} 님과 {c_name2} 님의 최종 궁합 점수: <span style='color:#ffeb3b; font-size:2rem;'>{comp['total_score']}점</span>", unsafe_allow_html=True)
                 st.markdown(f"**궁합 등급:** {comp['grade']}")
                 st.markdown("<br/>", unsafe_allow_html=True)
                 
                 st.markdown("##### 🎯 부문별 궁합 해설")
                 score_breakdown = comp['breakdown']
                 exps = comp['explanations']
+                detailed_logs = comp.get('detailed_logs', {})
                 
                 s_cols = st.columns(4)
-                with s_cols[0]: st.metric("정신적 조화 (일간)", f"{score_breakdown['stem_score']} / 30")
-                with s_cols[1]: st.metric("오행 보완성", f"{score_breakdown['def_score']} / 35")
-                with s_cols[2]: st.metric("현실적 조화 (일지)", f"{score_breakdown['branch_score']} / 20")
-                with s_cols[3]: st.metric("온도 조화 (조후)", f"{score_breakdown['temp_score']} / 15")
+                with s_cols[0]: st.metric("가치관 및 소통", f"{score_breakdown['values_score']} / 25")
+                with s_cols[1]: st.metric("오행 보완성", f"{score_breakdown['complement_score']} / 25")
+                with s_cols[2]: st.metric("현실적 조화", f"{score_breakdown['binding_score']} / 25")
+                with s_cols[3]: st.metric("운의 시너지", f"{score_breakdown['fortune_score']} / 25")
                 
                 st.markdown(f'''
                 <div class="mystic-card" style="margin-top: 15px;">
-                    <p>🧠 <b>가치관 및 소통 (일간):</b> {exps["stem_desc"]}</p>
-                    <p>🧩 <b>오행 시너지:</b> {exps["def_desc"]}</p>
-                    <p>🚪 <b>현실 및 환경 조화 (일지):</b> {exps["branch_desc"]}</p>
-                    <p>🌡️ <b>에너지 조율 (조후):</b> {exps["temp_desc"]}</p>
+                    <p>🧠 <b>가치관 및 소통:</b> {exps["values_desc"]}</p>
+                    <p>🧩 <b>오행 시너지:</b> {exps["complement_desc"]}</p>
+                    <p>🚪 <b>현실 조화 (일지):</b> {exps["binding_desc"]}</p>
+                    <p>📈 <b>운의 시너지:</b> {exps["fortune_desc"]}</p>
                 </div>
                 ''', unsafe_allow_html=True)
+                
+                # Render Detailed Logs (NEW FEATURE)
+                st.markdown("##### 📝 왜 이런 점수가 나왔을까요? (상세 획득 점수표)")
+                def render_log_table_couple(logs_list):
+                    if not logs_list:
+                        return "<p style='color: #aaa;'>특이사항 없음</p>"
+                    html = "<table class='friends-table' style='margin-top: 5px; font-size: 0.9rem; margin-bottom: 15px;'>"
+                    html += "<tr><th style='width: 30%;'>평가 항목</th><th style='width: 15%;'>획득 점수</th><th style='width: 55%;'>상세 분석 이유</th></tr>"
+                    for log in logs_list:
+                        html += f"<tr><td>{log['item']}</td><td><span style='color:#ffeb3b; font-weight: bold;'>{log['score']}점</span></td><td>{log['reason']}</td></tr>"
+                    html += "</table>"
+                    return html
+                    
+                if detailed_logs:
+                    with st.expander("🔍 상세 획득 점수표 보기"):
+                        st.markdown("**1. 가치관 및 소통 (총 25점)**")
+                        st.markdown(render_log_table_couple(detailed_logs.get('values', [])), unsafe_allow_html=True)
+                        st.markdown("**2. 오행의 상호 보완성 (총 25점)**")
+                        st.markdown(render_log_table_couple(detailed_logs.get('complement', [])), unsafe_allow_html=True)
+                        st.markdown("**3. 일간 및 지지 결합도 (총 25점)**")
+                        st.markdown(render_log_table_couple(detailed_logs.get('binding', [])), unsafe_allow_html=True)
+                        st.markdown("**4. 운의 시너지 효과 (총 25점)**")
+                        st.markdown(render_log_table_couple(detailed_logs.get('fortune', [])), unsafe_allow_html=True)
                 
                 # Show best record from DB
                 friends_db = load_friends_db()
@@ -1303,17 +1333,17 @@ if is_maker:
             if friends_db:
                 json_str = json.dumps(friends_db, ensure_ascii=False, indent=4)
                 st.download_button(
-                    label="📥 친구 목록 백업 파일 다운로드 (.json)",
+                    label="📥 친구 목록 백업 파일 다운로드 (.txt)",
                     data=json_str,
-                    file_name=f"saju_backup_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-                    mime="application/json"
+                    file_name=f"saju_backup_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                    mime="text/plain"
                 )
             else:
                 st.write("현재 백업할 데이터가 없습니다.")
                 
         with col_b2:
             st.markdown("**2. 백업 데이터 불러오기 (복구)**")
-            uploaded_file = st.file_uploader("다운로드 받았던 json 파일을 올려주세요", type="json")
+            uploaded_file = st.file_uploader("다운로드 받았던 txt 백업 파일을 올려주세요", type="txt")
             if uploaded_file is not None:
                 if st.button("⚠️ 업로드한 파일로 전체 데이터 덮어쓰기"):
                     try:
@@ -1363,12 +1393,12 @@ with tab_guide:
         
     st.markdown("""
     <div class="mystic-card" style="width: 100%;">
-        <h4>🤝 궁합(宮合) 매칭 평가 기준</h4>
+        <h4>🤝 궁합(宮合) 매칭 평가 기준 (현대 명리학)</h4>
         <ol>
-            <li><b>일간 조화 (정신적 합 - 30점):</b> 나와 상대방의 타고난 영혼의 성향(일간)이 천간합(甲己, 乙庚, 丙辛, 丁壬, 戊癸)을 이루거나 오행 상생 관계인지 확인합니다.</li>
-            <li><b>오행 결핍 보완 (시너지 - 35점):</b> 나에게 없는 결핍된 오행 기운을 상대방이 넉넉히 가지고 있는지를 점수화합니다. 나를 숨 쉬게 해주는 상대를 찾는 가장 현실적인 점수입니다.</li>
-            <li><b>일지 조화 (현실적 속궁합 - 20점):</b> 부부궁이자 사생활을 의미하는 일지(日支)가 서로 육합(六合)이나 삼합(三合)으로 강하게 끌어당기는지 확인합니다.</li>
-            <li><b>온도 조율 (조후 균형 - 15점):</b> 한 명이 뜨겁고 건조한 사주(화 기운 과다)일 때 다른 한 명이 차갑고 습한 사주(수 기운 과다)라면 에너지가 만나 완벽한 중화를 이루므로 높게 평가합니다.</li>
+            <li><b>성향 및 가치관 일치도 (25점):</b> 일간(본질)간의 조화를 분석하여 두 사람의 가치관과 소통 방식을 평가합니다.</li>
+            <li><b>오행의 상호 보완성 (25점):</b> 서로 부족한 기운(억부)과 온도(조후)를 채워주는지 평가하여 시너지와 안정감을 봅니다.</li>
+            <li><b>일간 및 지지 결합도 (25점):</b> 정신적 끈끈함과 현실적 속궁합(일지 조화)을 함께 살펴 생활 밀착도를 분석합니다.</li>
+            <li><b>운의 시너지 효과 (25점):</b> 사회적 성장운(월지)과 조상/가문운(연지), 상호 조력 관계를 통해 함께 발전할 가능성을 평가합니다.</li>
         </ol>
     </div>
     """, unsafe_allow_html=True)
